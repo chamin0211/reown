@@ -1,0 +1,215 @@
+package com.reown.backend.trade.service;
+
+import com.reown.backend.catalog.entity.Product;
+import com.reown.backend.catalog.entity.ProductOption;
+import com.reown.backend.catalog.repository.ProductOptionRepository;
+import com.reown.backend.catalog.repository.ProductRepository;
+import com.reown.backend.trade.dto.*;
+import com.reown.backend.trade.entity.TradeCartItem;
+import com.reown.backend.trade.entity.TradeOrder;
+import com.reown.backend.trade.entity.TradeOrderItem;
+import com.reown.backend.trade.entity.TradePayment;
+import com.reown.backend.trade.repository.TradeCartItemRepository;
+import com.reown.backend.trade.repository.TradeOrderItemRepository;
+import com.reown.backend.trade.repository.TradeOrderRepository;
+import com.reown.backend.trade.repository.TradePaymentRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class TradeService {
+
+    private final TradeCartItemRepository cartItemRepository;
+    private final TradeOrderRepository orderRepository;
+    private final TradeOrderItemRepository orderItemRepository;
+    private final TradePaymentRepository paymentRepository;
+
+    private final ProductRepository productRepository;
+    private final ProductOptionRepository productOptionRepository;
+
+    @Transactional
+    public CartItemResponse addCartItem(CartItemAddRequest request) {
+        ProductOption option = productOptionRepository.findById(request.optionId())
+                .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + request.optionId()));
+
+        Product product = productRepository.findById(option.getProductId())
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+        TradeCartItem cartItem = cartItemRepository
+                .findByUserIdAndOptionId(request.userId(), request.optionId())
+                .map(existingCartItem -> {
+                    existingCartItem.increaseQuantity(request.quantity());
+                    return existingCartItem;
+                })
+                .orElseGet(() -> new TradeCartItem(
+                        request.userId(),
+                        request.optionId(),
+                        request.quantity()
+                ));
+
+        TradeCartItem savedCartItem = cartItemRepository.save(cartItem);
+
+        return CartItemResponse.from(savedCartItem, product, option);
+    }
+
+    public List<CartItemResponse> getCartItems(Long userId) {
+        return cartItemRepository.findByUserId(userId)
+                .stream()
+                .map(cartItem -> {
+                    ProductOption option = productOptionRepository.findById(cartItem.getOptionId())
+                            .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + cartItem.getOptionId()));
+
+                    Product product = productRepository.findById(option.getProductId())
+                            .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+                    return CartItemResponse.from(cartItem, product, option);
+                })
+                .toList();
+    }
+
+    @Transactional
+    public void deleteCartItem(Long cartItemId) {
+        if (!cartItemRepository.existsById(cartItemId)) {
+            throw new IllegalArgumentException("장바구니 상품을 찾을 수 없습니다. cartItemId=" + cartItemId);
+        }
+
+        cartItemRepository.deleteById(cartItemId);
+    }
+
+    @Transactional
+    public OrderResponse createOrder(OrderCreateRequest request) {
+        List<TradeCartItem> cartItems = cartItemRepository.findByUserId(request.userId());
+
+        if (cartItems.isEmpty()) {
+            throw new IllegalArgumentException("장바구니가 비어 있습니다.");
+        }
+
+        int totalPaymentAmount = 0;
+
+        for (TradeCartItem cartItem : cartItems) {
+            ProductOption option = productOptionRepository.findById(cartItem.getOptionId())
+                    .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + cartItem.getOptionId()));
+
+            Product product = productRepository.findById(option.getProductId())
+                    .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+            totalPaymentAmount += product.getPrice() * cartItem.getQuantity();
+        }
+
+        String orderNo = "ORD-" + System.currentTimeMillis();
+
+        TradeOrder order = new TradeOrder(
+                request.userId(),
+                orderNo,
+                totalPaymentAmount,
+                request.shippingAddressSnapshot()
+        );
+
+        TradeOrder savedOrder = orderRepository.save(order);
+
+        for (TradeCartItem cartItem : cartItems) {
+            ProductOption option = productOptionRepository.findById(cartItem.getOptionId())
+                    .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + cartItem.getOptionId()));
+
+            Product product = productRepository.findById(option.getProductId())
+                    .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+            TradeOrderItem orderItem = new TradeOrderItem(
+                    savedOrder.getOrderId(),
+                    cartItem.getOptionId(),
+                    cartItem.getQuantity(),
+                    product.getPrice()
+            );
+
+            orderItemRepository.save(orderItem);
+        }
+
+        cartItemRepository.deleteByUserId(request.userId());
+
+        return getOrder(savedOrder.getOrderId());
+    }
+
+    public OrderResponse getOrder(Long orderId) {
+        TradeOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId));
+
+        List<OrderItemResponse> itemResponses = orderItemRepository.findByOrderId(orderId)
+                .stream()
+                .map(orderItem -> {
+                    ProductOption option = productOptionRepository.findById(orderItem.getOptionId())
+                            .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + orderItem.getOptionId()));
+
+                    Product product = productRepository.findById(option.getProductId())
+                            .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+                    return OrderItemResponse.from(orderItem, product, option);
+                })
+                .toList();
+
+        return OrderResponse.from(order, itemResponses);
+    }
+
+    public List<OrderResponse> getOrdersByUserId(Long userId) {
+        return orderRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(order -> getOrder(order.getOrderId()))
+                .toList();
+    }
+
+    public List<PurchasedOrderItemResponse> getPurchasedOrderItems(Long userId) {
+        return orderRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, "PAID")
+                .stream()
+                .flatMap(order -> orderItemRepository.findByOrderId(order.getOrderId())
+                        .stream()
+                        .map(orderItem -> {
+                            ProductOption option = productOptionRepository.findById(orderItem.getOptionId())
+                                    .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + orderItem.getOptionId()));
+
+                            Product product = productRepository.findById(option.getProductId())
+                                    .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+                            return PurchasedOrderItemResponse.from(order, orderItem, product, option);
+                        }))
+                .toList();
+    }
+
+    @Transactional
+    public PaymentResponse payMock(MockPaymentRequest request) {
+        TradeOrder order = orderRepository.findById(request.orderId())
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + request.orderId()));
+
+        if ("PAID".equals(order.getStatus())) {
+            throw new IllegalArgumentException("이미 결제된 주문입니다.");
+        }
+
+        List<TradeOrderItem> orderItems = orderItemRepository.findByOrderId(order.getOrderId());
+
+        for (TradeOrderItem orderItem : orderItems) {
+            ProductOption option = productOptionRepository.findById(orderItem.getOptionId())
+                    .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + orderItem.getOptionId()));
+
+            option.decreaseStock(orderItem.getQuantity());
+        }
+
+        order.markPaid();
+
+        String paymentMethod = request.paymentMethod() != null ? request.paymentMethod() : "MOCK_CARD";
+        String pgTid = "MOCK-" + System.currentTimeMillis();
+
+        TradePayment payment = new TradePayment(
+                order.getOrderId(),
+                pgTid,
+                paymentMethod,
+                order.getTotalPaymentAmount()
+        );
+
+        TradePayment savedPayment = paymentRepository.save(payment);
+
+        return PaymentResponse.from(savedPayment);
+    }
+}
