@@ -35,7 +35,7 @@ public class CatalogService {
     }
 
     public List<ProductListResponse> getProducts() {
-        return productRepository.findByStatusNot("DELETED")
+        return productRepository.findByStatus("ON_SALE")
                 .stream()
                 .map(ProductListResponse::from)
                 .toList();
@@ -63,7 +63,7 @@ public class CatalogService {
     @Transactional
     public ProductDetailResponse createProduct(ProductCreateRequest request) {
         String saleType = request.saleType() != null ? request.saleType() : "NORMAL";
-        String status = request.status() != null ? request.status() : "ON_SALE";
+        String status = request.status() != null ? request.status() : "WAITING";
         Integer displaySortOrder = request.displaySortOrder() != null ? request.displaySortOrder() : 0;
 
         Product product = new Product(
@@ -108,6 +108,34 @@ public class CatalogService {
     }
 
     @Transactional
+    public ProductDetailResponse approveProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + productId));
+        product.approve();
+
+        List<ProductOptionResponse> options = productOptionRepository.findByProductId(productId)
+                .stream()
+                .map(ProductOptionResponse::from)
+                .toList();
+
+        return ProductDetailResponse.from(product, options);
+    }
+
+    @Transactional
+    public ProductDetailResponse rejectProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + productId));
+        product.reject();
+
+        List<ProductOptionResponse> options = productOptionRepository.findByProductId(productId)
+                .stream()
+                .map(ProductOptionResponse::from)
+                .toList();
+
+        return ProductDetailResponse.from(product, options);
+    }
+
+    @Transactional
     public void deleteProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + productId));
@@ -120,6 +148,10 @@ public class CatalogService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + productId));
 
+        Integer reservedQuantity = request.reservedQuantity() != null
+                ? request.reservedQuantity()
+                : 0;
+
         ProductOption option = new ProductOption(
                 product.getProductId(),
                 request.size(),
@@ -127,7 +159,7 @@ public class CatalogService {
                 request.colorHex(),
                 request.stockQuantity(),
                 request.safetyStock(),
-                request.reservedQuantity()
+                reservedQuantity
         );
 
         ProductOption savedOption = productOptionRepository.save(option);

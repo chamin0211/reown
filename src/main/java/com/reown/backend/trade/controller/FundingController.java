@@ -4,6 +4,7 @@ import com.reown.backend.trade.dto.FundingCampaignResponse;
 import com.reown.backend.trade.dto.FundingCreateRequest;
 import com.reown.backend.trade.dto.FundingParticipateRequest;
 import com.reown.backend.trade.dto.FundingParticipateResponse;
+import com.reown.backend.trade.dto.FundingParticipationResponse;
 import com.reown.backend.trade.service.FundingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,20 @@ public class FundingController {
             @Valid @RequestBody FundingParticipateRequest request
     ) {
         return fundingService.participate(campaignId, request);
+    }
+
+    @GetMapping("/{campaignId}/participations")
+    public List<FundingParticipationResponse> getParticipationsByCampaign(
+            @PathVariable Long campaignId
+    ) {
+        return fundingService.getParticipationsByCampaign(campaignId);
+    }
+
+    @GetMapping("/users/{userId}/participations")
+    public List<FundingParticipationResponse> getParticipationsByUser(
+            @PathVariable Long userId
+    ) {
+        return fundingService.getParticipationsByUser(userId);
     }
 
     @PatchMapping("/{campaignId}/cancel")

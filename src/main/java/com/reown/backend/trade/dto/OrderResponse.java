@@ -12,6 +12,10 @@ public record OrderResponse(
         Integer totalPaymentAmount,
         String shippingAddressSnapshot,
         String status,
+        String shippingStatus,
+        String trackingNumber,
+        LocalDateTime shippedAt,
+        LocalDateTime deliveredAt,
         LocalDateTime createdAt,
         List<OrderItemResponse> items
 ) {
@@ -26,6 +30,10 @@ public record OrderResponse(
                 order.getTotalPaymentAmount(),
                 order.getShippingAddressSnapshot(),
                 order.getStatus(),
+                order.getShippingStatus(),
+                order.getTrackingNumber(),
+                order.getShippedAt(),
+                order.getDeliveredAt(),
                 order.getCreatedAt(),
                 items
         );

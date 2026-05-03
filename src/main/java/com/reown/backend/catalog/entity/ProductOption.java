@@ -34,7 +34,7 @@ public class ProductOption {
     private Integer safetyStock;
 
     @Column(name = "reserved_quantity")
-    private Integer reservedQuantity;
+    private Integer reservedQuantity = 0;
 
     public ProductOption(
             Long productId,
@@ -51,7 +51,7 @@ public class ProductOption {
         this.colorHex = colorHex;
         this.stockQuantity = stockQuantity;
         this.safetyStock = safetyStock;
-        this.reservedQuantity = reservedQuantity;
+        this.reservedQuantity = reservedQuantity != null ? reservedQuantity : 0;
     }
 
     public void decreaseStock(Integer quantity) {

@@ -178,6 +178,44 @@ public class TradeService {
                 .toList();
     }
 
+
+    @Transactional
+    public OrderResponse prepareShipping(Long orderId) {
+        TradeOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId));
+
+        order.prepareShipping();
+
+        return getOrder(order.getOrderId());
+    }
+
+    @Transactional
+    public OrderResponse shipOrder(Long orderId, String trackingNumber) {
+        TradeOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId));
+
+        order.ship(trackingNumber);
+
+        return getOrder(order.getOrderId());
+    }
+
+    @Transactional
+    public OrderResponse deliverOrder(Long orderId) {
+        TradeOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId));
+
+        order.deliver();
+
+        return getOrder(order.getOrderId());
+    }
+
+    public List<OrderResponse> getAllOrders() {
+        return orderRepository.findAll()
+                .stream()
+                .map(order -> getOrder(order.getOrderId()))
+                .toList();
+    }
+
     @Transactional
     public PaymentResponse payMock(MockPaymentRequest request) {
         TradeOrder order = orderRepository.findById(request.orderId())

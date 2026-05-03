@@ -113,6 +113,14 @@ public class Product {
         }
     }
 
+    public void approve() {
+        this.status = "ON_SALE";
+    }
+
+    public void reject() {
+        this.status = "REJECTED";
+    }
+
     public void delete() {
         this.status = "DELETED";
     }

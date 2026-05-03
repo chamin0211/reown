@@ -1,4 +1,133 @@
-### 1. 장바구니 추가
+### =========================
+### RE:OWN 전체 기본 백엔드 흐름 테스트
+### 제외: Spring Security/JWT 고도화, 카카오 로그인, 외부 상품 데이터 연동, PortOne 실제 결제, Redis KREAM식 입찰
+### DB 초기화 후 순서대로 실행하면 대부분 ID가 1부터 생성됨
+### =========================
+
+### 1. 일반 사용자 회원가입
+POST http://localhost:8080/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "user1@test.com",
+  "password": "1234",
+  "nickname": "일반사용자",
+  "role": "USER"
+}
+
+### 2. 관리자 회원가입
+POST http://localhost:8080/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "admin@test.com",
+  "password": "1234",
+  "nickname": "관리자",
+  "role": "ADMIN"
+}
+
+### 3. 일반 사용자 로그인
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user1@test.com",
+  "password": "1234"
+}
+
+### 4. 브랜드 입점 신청
+POST http://localhost:8080/api/brands/apply
+Content-Type: application/json
+
+{
+  "ownerUserId": 1,
+  "brandName": "REOWN TEST BRAND",
+  "brandLogoUrl": "https://example.com/logo.png",
+  "businessNumber": "123-45-67890",
+  "settlementCycle": "MONTHLY"
+}
+
+### 5. 관리자 - 승인 대기 브랜드 조회
+GET http://localhost:8080/api/admin/brands?status=PENDING
+
+### 6. 관리자 - 브랜드 승인 후 사용자 role SELLER 전환
+PATCH http://localhost:8080/api/admin/brands/1/approve
+
+### 7. 승인 후 다시 로그인해서 role 확인
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user1@test.com",
+  "password": "1234"
+}
+
+### 8. 상품 등록 - 기본 상태 WAITING
+POST http://localhost:8080/api/admin/products
+Content-Type: application/json
+
+{
+  "brandId": 1,
+  "name": "테스트 후드티",
+  "thumbnailUrl": "https://example.com/product.png",
+  "price": 69000,
+  "weightG": 500,
+  "maxPurchasePerUser": 2,
+  "saleType": "NORMAL",
+  "displaySortOrder": 1
+}
+
+### 9. 상품 옵션 추가
+POST http://localhost:8080/api/admin/products/1/options
+Content-Type: application/json
+
+{
+  "size": "M",
+  "color": "BLACK",
+  "colorHex": "#000000",
+  "stockQuantity": 20,
+  "safetyStock": 3
+}
+
+### 10. 관리자 - 상품 승인 후 ON_SALE 전환
+PATCH http://localhost:8080/api/admin/products/1/approve
+
+### 11. 상품 목록 조회
+GET http://localhost:8080/api/products
+
+### 12. 상품 상세 조회
+GET http://localhost:8080/api/products/1
+
+### 13. 펀딩 생성
+POST http://localhost:8080/api/fundings
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "targetAmount": 100000,
+  "startDate": "2026-05-03T00:00:00",
+  "endDate": "2026-06-03T23:59:59"
+}
+
+### 14. 펀딩 상세 조회
+GET http://localhost:8080/api/fundings/1
+
+### 15. 펀딩 참여 - currentAmount 50000, progressRate 50.0 확인
+POST http://localhost:8080/api/fundings/1/participate
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "amount": 50000
+}
+
+### 16. 펀딩 참여 이력 조회 - campaign 기준
+GET http://localhost:8080/api/fundings/1/participations
+
+### 17. 펀딩 참여 이력 조회 - user 기준
+GET http://localhost:8080/api/fundings/users/1/participations
+
+### 18. 장바구니 추가
 POST http://localhost:8080/api/cart/items
 Content-Type: application/json
 
@@ -8,57 +137,69 @@ Content-Type: application/json
   "quantity": 1
 }
 
-
-### 2. 장바구니 조회
+### 19. 장바구니 조회
 GET http://localhost:8080/api/cart?userId=1
 
-
-### 3. 주문 생성
+### 20. 주문 생성
 POST http://localhost:8080/api/orders
 Content-Type: application/json
 
 {
   "userId": 1,
+  "cartItemIds": [1],
   "shippingAddressSnapshot": "경기도 수원시 테스트 주소"
 }
 
-
-### 4. mock 결제
+### 21. Mock 결제 - 주문 상태 PAID, 배송 상태 READY
 POST http://localhost:8080/api/payments/mock
 Content-Type: application/json
 
 {
-  "orderId": 6,
-  "paymentMethod": "MOCK_CARD"
+  "orderId": 1
 }
 
+### 22. 관리자 - 전체 주문 조회
+GET http://localhost:8080/api/orders/admin
 
-### 5. 내가 구매한 상품 목록 조회
+### 23. 관리자 - 배송 준비 처리
+PATCH http://localhost:8080/api/orders/admin/1/prepare-shipping
+
+### 24. 관리자 - 출고 처리
+PATCH http://localhost:8080/api/orders/admin/1/ship
+Content-Type: application/json
+
+{
+  "trackingNumber": "CJ-TEST-0001"
+}
+
+### 25. 관리자 - 배송 완료 처리
+PATCH http://localhost:8080/api/orders/admin/1/deliver
+
+### 26. 주문 상세 조회 - shippingStatus DELIVERED 확인
+GET http://localhost:8080/api/orders/1
+
+### 27. 구매 상품 조회 - 리셀 등록용 orderItemId 확인
 GET http://localhost:8080/api/orders/users/1/items
 
-
-### 6. 리셀 등록
+### 28. 리셀 등록
 POST http://localhost:8080/api/resells
 Content-Type: application/json
 
 {
   "sellerId": 1,
-  "orderItemId": 6,
+  "orderItemId": 1,
   "resellPrice": 45000,
   "conditionDescription": "2회 착용, 오염 없음"
 }
 
-
-### 7. 리셀 목록 조회
+### 29. 리셀 목록 조회
 GET http://localhost:8080/api/resells
 
+### 30. 리셀 상세 조회
+GET http://localhost:8080/api/resells/1
 
-### 8. 리셀 상세 조회
-GET http://localhost:8080/api/resells/2
-
-
-### 9. 리셀 가격 제안
-POST http://localhost:8080/api/resells/2/offers
+### 31. 리셀 가격 제안 - buyerId 2
+POST http://localhost:8080/api/resells/1/offers
 Content-Type: application/json
 
 {
@@ -66,31 +207,27 @@ Content-Type: application/json
   "offerPrice": 40000
 }
 
-
-### 10. 리셀 바로 구매
-POST http://localhost:8080/api/resells/2/purchase
+### 32. 리셀 바로 구매 - 판매 완료 SOLD, 거래 COMPLETED
+POST http://localhost:8080/api/resells/1/purchase
 Content-Type: application/json
 
 {
   "buyerId": 2
 }
 
-### 11. 내가 등록한 리셀 상품 목록
+### 33. 판매자 리셀 상품 목록 조회
 GET http://localhost:8080/api/resells/sellers/1
 
+### 34. 특정 리셀 상품 가격 제안 목록
+GET http://localhost:8080/api/resells/1/offers
 
-### 12. 특정 리셀 상품에 들어온 가격 제안 목록
-GET http://localhost:8080/api/resells/2/offers
-
-
-### 13. 구매자가 보낸 가격 제안 목록
+### 35. 구매자 가격 제안 목록
 GET http://localhost:8080/api/resells/buyers/2/offers
 
-
-### 14. 구매자의 리셀 구매 내역
+### 36. 구매자 리셀 거래 내역
 GET http://localhost:8080/api/resells/buyers/2/transactions
 
-### 15. 중복 리셀 등록 방지 테스트
+### 37. 중복 리셀 등록 방지 테스트 - 400 정상
 POST http://localhost:8080/api/resells
 Content-Type: application/json
 
@@ -101,9 +238,8 @@ Content-Type: application/json
   "conditionDescription": "중복 등록 테스트"
 }
 
-
-### 16. SOLD 상품 가격 제안 방지 테스트
-POST http://localhost:8080/api/resells/2/offers
+### 38. SOLD 상품 가격 제안 방지 테스트 - 400 정상
+POST http://localhost:8080/api/resells/1/offers
 Content-Type: application/json
 
 {
@@ -111,45 +247,35 @@ Content-Type: application/json
   "offerPrice": 40000
 }
 
-
-### 17. SOLD 상품 재구매 방지 테스트
-POST http://localhost:8080/api/resells/2/purchase
+### 39. SOLD 상품 재구매 방지 테스트 - 400 정상
+POST http://localhost:8080/api/resells/1/purchase
 Content-Type: application/json
 
 {
-  "buyerId": 2,
-  "purchasePrice": 45000
+  "buyerId": 2
 }
 
-
-### 18. 자기 상품 가격 제안 방지 테스트
-POST http://localhost:8080/api/resells/2/offers
+### 40. 정산 생성 - 일반 주문 + 리셀 거래 합산, 플랫폼 수수료 5%
+POST http://localhost:8080/api/admin/settlements
 Content-Type: application/json
 
 {
-  "buyerId": 1,
-  "offerPrice": 40000
+  "brandId": 1,
+  "settlementType": "ALL",
+  "periodStart": "2026-05-01T00:00:00",
+  "periodEnd": "2026-12-31T23:59:59"
 }
 
-### 19. 리셀 상품 수정 테스트
-PATCH http://localhost:8080/api/resells/3
-Content-Type: application/json
+### 41. 정산 목록 조회
+GET http://localhost:8080/api/admin/settlements
 
-{
-  "sellerId": 1,
-  "resellPrice": 52000,
-  "conditionDescription": "1회 착용, 오염 없음, 상태 매우 좋음"
-}
+### 42. 브랜드별 정산 조회
+GET http://localhost:8080/api/brands/1/settlements
 
+### 43. 정산 완료 처리
+PATCH http://localhost:8080/api/admin/settlements/1/complete
 
-### 20. 리셀 상품 판매 취소 테스트
-PATCH http://localhost:8080/api/resells/3/cancel?sellerId=1
-
-
-### 21. 취소된 리셀 상품 상세 조회
-GET http://localhost:8080/api/resells/3
-
-### 펀딩 생성
+### 44. 펀딩 취소 테스트용 펀딩 생성
 POST http://localhost:8080/api/fundings
 Content-Type: application/json
 
@@ -157,27 +283,8 @@ Content-Type: application/json
   "productId": 1,
   "targetAmount": 100000,
   "startDate": "2026-05-03T00:00:00",
-  "endDate": "2026-12-31T23:59:59",
-  "fundingStatus": "OPEN"
+  "endDate": "2026-12-31T23:59:59"
 }
 
-### 펀딩 목록 조회
-GET http://localhost:8080/api/fundings
-
-### 진행중인 펀딩만 조회
-GET http://localhost:8080/api/fundings?status=OPEN
-
-### 펀딩 상세 조회
-GET http://localhost:8080/api/fundings/1
-
-### 펀딩 참여
-POST http://localhost:8080/api/fundings/1/participate
-Content-Type: application/json
-
-{
-  "userId": 1,
-  "amount": 40000
-}
-
-### 펀딩 취소
+### 45. 펀딩 취소
 PATCH http://localhost:8080/api/fundings/2/cancel

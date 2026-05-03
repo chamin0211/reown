@@ -34,6 +34,21 @@ public class ProductAdminController {
         return catalogService.updateProduct(productId, request);
     }
 
+
+    @PatchMapping("/{productId}/approve")
+    public ProductDetailResponse approveProduct(
+            @PathVariable Long productId
+    ) {
+        return catalogService.approveProduct(productId);
+    }
+
+    @PatchMapping("/{productId}/reject")
+    public ProductDetailResponse rejectProduct(
+            @PathVariable Long productId
+    ) {
+        return catalogService.rejectProduct(productId);
+    }
+
     @DeleteMapping("/{productId}")
     public Map<String, String> deleteProduct(
             @PathVariable Long productId
