@@ -2,6 +2,7 @@
 -- Scope: frontend/demo data only.
 -- Excluded future integrations: Kakao Login, PortOne real payment, Redis KREAM-style bid matching.
 -- Recommended: stop Spring Boot before running this file.
+use reown2;
 
 SET FOREIGN_KEY_CHECKS = 0;
 

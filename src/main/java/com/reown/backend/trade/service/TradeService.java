@@ -28,6 +28,7 @@ public class TradeService {
     private final TradeOrderRepository orderRepository;
     private final TradeOrderItemRepository orderItemRepository;
     private final TradePaymentRepository paymentRepository;
+    private final PortOnePaymentService portOnePaymentService;
 
     private final ProductRepository productRepository;
     private final ProductOptionRepository productOptionRepository;
@@ -218,13 +219,41 @@ public class TradeService {
 
     @Transactional
     public PaymentResponse payMock(MockPaymentRequest request) {
-        TradeOrder order = orderRepository.findById(request.orderId())
-                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + request.orderId()));
+        TradeOrder order = getPayableOrder(request.orderId());
+
+        String paymentMethod = request.paymentMethod() != null ? request.paymentMethod() : "MOCK_CARD";
+        String pgTid = "MOCK-" + System.currentTimeMillis();
+
+        return completePayment(order, pgTid, paymentMethod, order.getTotalPaymentAmount());
+    }
+
+    @Transactional
+    public PaymentResponse payPortOne(PortOnePaymentVerifyRequest request) {
+        TradeOrder order = getPayableOrder(request.orderId());
+
+        PortOnePaymentService.PortOneVerifiedPayment verifiedPayment =
+                portOnePaymentService.verify(request, order.getTotalPaymentAmount());
+
+        return completePayment(
+                order,
+                verifiedPayment.paymentId(),
+                verifiedPayment.paymentMethod(),
+                verifiedPayment.amount()
+        );
+    }
+
+    private TradeOrder getPayableOrder(Long orderId) {
+        TradeOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId));
 
         if ("PAID".equals(order.getStatus())) {
             throw new IllegalArgumentException("이미 결제된 주문입니다.");
         }
 
+        return order;
+    }
+
+    private PaymentResponse completePayment(TradeOrder order, String pgTid, String paymentMethod, Integer amount) {
         List<TradeOrderItem> orderItems = orderItemRepository.findByOrderId(order.getOrderId());
 
         for (TradeOrderItem orderItem : orderItems) {
@@ -236,14 +265,11 @@ public class TradeService {
 
         order.markPaid();
 
-        String paymentMethod = request.paymentMethod() != null ? request.paymentMethod() : "MOCK_CARD";
-        String pgTid = "MOCK-" + System.currentTimeMillis();
-
         TradePayment payment = new TradePayment(
                 order.getOrderId(),
                 pgTid,
                 paymentMethod,
-                order.getTotalPaymentAmount()
+                amount
         );
 
         TradePayment savedPayment = paymentRepository.save(payment);

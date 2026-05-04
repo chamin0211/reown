@@ -2,6 +2,7 @@ package com.reown.backend.trade.controller;
 
 import com.reown.backend.trade.dto.MockPaymentRequest;
 import com.reown.backend.trade.dto.PaymentResponse;
+import com.reown.backend.trade.dto.PortOnePaymentVerifyRequest;
 import com.reown.backend.trade.service.TradeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,5 +20,12 @@ public class PaymentController {
             @Valid @RequestBody MockPaymentRequest request
     ) {
         return tradeService.payMock(request);
+    }
+
+    @PostMapping("/portone/verify")
+    public PaymentResponse verifyPortOnePayment(
+            @Valid @RequestBody PortOnePaymentVerifyRequest request
+    ) {
+        return tradeService.payPortOne(request);
     }
 }
