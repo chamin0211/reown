@@ -1,44 +1,26 @@
 ### =========================
 ### RE:OWN 발표용 백엔드 API 테스트
-### 기준: reown2 DB + reown_dummy_data_10brands.sql 삽입 완료 상태
-### 목적: PPT 캡처용 API 요청/응답 확인
+### 기준:
+### - reown2 DB 생성 완료
+### - reown_dummy_data_10brands.sql 삽입 완료
+### - 더미데이터: user 1~16, brand 1~10, product 1~40, option 1~80 존재
 ###
-### 주의
-### - 전체 1회 순서대로 실행 기준
-### - 이미 한 번 실행했다면 브랜드명/사업자번호/이메일을 바꾸거나 DB를 다시 초기화해야 함
-### - 리셀 API는 다음 발표에서 Redis 입찰 기능과 함께 설명할 예정이므로 제외
-### - Kakao / PortOne은 실제 키가 필요하므로 구조 확인용으로만 포함
+### 목적:
+### - PPT 캡처용 API 요청/응답 확인
+### - 리셀 기능은 다음 발표에서 Redis 입찰과 함께 설명할 예정이므로 제외
+### - 카카오 로그인 / PortOne 결제 검증 API는 구조 확인용 포함
+###
+### 주의:
+### - 전체 테스트는 DB 초기화 직후 1회 순서대로 실행 기준
+### - 이미 실행했다면 businessNumber 값을 바꾸거나 DB를 다시 초기화해야 함
 ### =========================
 
 
 ### =========================
-### 1. 회원가입 / 로그인 API
+### 1. 로그인 API
 ### =========================
 
-### 1-1. 발표용 새 사용자 회원가입
-### 더미데이터에 없는 이메일 사용
-POST http://localhost:8080/api/auth/signup
-Content-Type: application/json
-
-{
-  "email": "pptuser@test.com",
-  "password": "1234",
-  "nickname": "발표테스트유저",
-  "role": "USER"
-}
-
-
-### 1-2. 발표용 새 사용자 로그인
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
-
-{
-  "email": "pptuser@test.com",
-  "password": "1234"
-}
-
-
-### 1-3. 더미데이터 일반 사용자 로그인
+### 1-1. 더미데이터 일반 사용자 로그인
 ### userId = 2
 POST http://localhost:8080/api/auth/login
 Content-Type: application/json
@@ -49,7 +31,7 @@ Content-Type: application/json
 }
 
 
-### 1-4. 더미데이터 관리자 로그인
+### 1-2. 더미데이터 관리자 로그인
 ### userId = 1
 POST http://localhost:8080/api/auth/login
 Content-Type: application/json
@@ -66,7 +48,7 @@ Content-Type: application/json
 ### =========================
 
 ### 2-1. 브랜드 입점 신청
-### 더미데이터 brand_id 1~10 존재 → 새 브랜드는 보통 brandId = 11
+### 기존 brand_id 1~10 존재 → 새 브랜드는 보통 brandId = 11
 ### ownerUserId = 2는 일반 사용자
 POST http://localhost:8080/api/brands/apply
 Content-Type: application/json
@@ -85,7 +67,7 @@ GET http://localhost:8080/api/admin/brands?status=PENDING
 
 
 ### 2-3. 관리자 - 브랜드 승인
-### 2-1 응답에서 brandId가 다르게 나오면 아래 11을 해당 brandId로 변경
+### 2-1 응답의 brandId가 11이 아니면 아래 숫자 변경
 PATCH http://localhost:8080/api/admin/brands/11/approve
 
 
@@ -94,7 +76,7 @@ GET http://localhost:8080/api/admin/brands
 
 
 ### 2-5. 승인 후 사용자 role 확인
-### 브랜드 승인 후 ownerUserId = 2 사용자가 SELLER로 바뀌는지 확인
+### ownerUserId = 2 사용자가 SELLER로 바뀌었는지 확인
 POST http://localhost:8080/api/auth/login
 Content-Type: application/json
 
@@ -103,22 +85,38 @@ Content-Type: application/json
   "password": "1234"
 }
 
+### 2-6. 브랜드 반려 테스트용 입점 신청
+### 승인 테스트와 businessNumber가 달라야 함
+POST http://localhost:8080/api/brands/apply
+Content-Type: application/json
 
+{
+  "ownerUserId": 3,
+  "brandName": "REOWN REJECT TEST BRAND",
+  "brandLogoUrl": "https://example.com/reject-logo.png",
+  "businessNumber": "888-88-88888",
+  "settlementCycle": "MONTHLY"
+}
+
+
+### 2-7. 관리자 - 브랜드 반려
+### 2-6 응답의 brandId가 12가 아니면 아래 숫자 변경
+PATCH http://localhost:8080/api/admin/brands/12/reject
 
 ### =========================
 ### 3. 상품 등록 / 옵션 추가 / 상품 승인 API
 ### =========================
 
 ### 3-1. 상품 등록
-### 방금 승인한 brandId = 11 사용
-### 더미데이터 product_id 1~40 존재 → 새 상품은 보통 productId = 41
+### 승인된 brandId = 11 사용
+### 기존 product_id 1~40 존재 → 새 상품은 보통 productId = 41
 POST http://localhost:8080/api/admin/products
 Content-Type: application/json
 
 {
   "brandId": 11,
   "name": "REOWN TEST HOODIE",
-  "thumbnailUrl": "https://example.com/product.png",
+  "thumbnailUrl": "/images/products/product-test.jpg",
   "price": 69000,
   "weightG": 500,
   "maxPurchasePerUser": 2,
@@ -128,8 +126,8 @@ Content-Type: application/json
 
 
 ### 3-2. 상품 옵션 추가
-### 3-1 응답에서 productId가 다르게 나오면 아래 41을 해당 productId로 변경
-### 더미데이터 option_id 1~80 존재 → 새 옵션은 보통 optionId = 81
+### 3-1 응답의 productId가 41이 아니면 아래 숫자 변경
+### 기존 option_id 1~80 존재 → 새 옵션은 보통 optionId = 81
 POST http://localhost:8080/api/admin/products/41/options
 Content-Type: application/json
 
@@ -144,7 +142,7 @@ Content-Type: application/json
 
 ### 3-3. 관리자 - 상품 승인
 ### 상품 상태 WAITING → ON_SALE
-PATCH http://localhost:8080/api/admin/products/41/approve
+POST http://localhost:8080/api/cart/items
 
 
 ### 3-4. 상품 목록 조회
@@ -157,14 +155,13 @@ GET http://localhost:8080/api/products/41
 
 
 ### =========================
-### 4. 장바구니 API
+### 4. 장바구니 / 주문 / Mock 결제 / 배송 API
 ### =========================
 
 ### 4-1. 장바구니 추가
-### userId = 2 사용
-### optionId = 81 사용
-### 3-2 응답에서 optionId가 다르게 나오면 아래 81을 해당 optionId로 변경
-### 더미데이터 cart_id 1~3 존재 → 새 cartId는 보통 4
+### userId = 2
+### optionId = 81
+### 기존 cart_id 1~3 존재 → 새 cartId는 보통 4
 POST http://localhost:8080/api/cart/items
 Content-Type: application/json
 
@@ -179,14 +176,9 @@ Content-Type: application/json
 GET http://localhost:8080/api/cart?userId=2
 
 
-
-### =========================
-### 5. 주문 / Mock 결제 / 배송 상태 처리 API
-### =========================
-
-### 5-1. 주문 생성
-### 4-1 응답에서 cartId 또는 cartItemId가 다르게 나오면 아래 [4]를 해당 ID로 변경
-### 더미데이터 order_id 1~10 존재 → 새 orderId는 보통 11
+### 4-3. 주문 생성
+### 4-1 응답의 cartId가 4가 아니면 cartItemIds 값 변경
+### 기존 order_id 1~10 존재 → 새 orderId는 보통 11
 POST http://localhost:8080/api/orders
 Content-Type: application/json
 
@@ -197,10 +189,10 @@ Content-Type: application/json
 }
 
 
-### 5-2. Mock 결제
+### 4-4. Mock 결제
 ### 주문 상태 PENDING → PAID
 ### 배송 상태 READY
-### 5-1 응답에서 orderId가 다르게 나오면 아래 11을 해당 orderId로 변경
+### 4-3 응답의 orderId가 11이 아니면 아래 숫자 변경
 POST http://localhost:8080/api/payments/mock
 Content-Type: application/json
 
@@ -209,15 +201,15 @@ Content-Type: application/json
 }
 
 
-### 5-3. 관리자 - 전체 주문 조회
+### 4-5. 관리자 - 전체 주문 조회
 GET http://localhost:8080/api/orders/admin
 
 
-### 5-4. 관리자 - 배송 준비 처리
+### 4-6. 관리자 - 배송 준비 처리
 PATCH http://localhost:8080/api/orders/admin/11/prepare-shipping
 
 
-### 5-5. 관리자 - 출고 처리
+### 4-7. 관리자 - 출고 처리
 PATCH http://localhost:8080/api/orders/admin/11/ship
 Content-Type: application/json
 
@@ -226,28 +218,27 @@ Content-Type: application/json
 }
 
 
-### 5-6. 관리자 - 배송 완료 처리
+### 4-8. 관리자 - 배송 완료 처리
 PATCH http://localhost:8080/api/orders/admin/11/deliver
 
 
-### 5-7. 주문 상세 조회
+### 4-9. 주문 상세 조회
 ### shippingStatus = DELIVERED 확인
 GET http://localhost:8080/api/orders/11
 
 
-### 5-8. 사용자별 구매 상품 조회
+### 4-10. 사용자별 구매 상품 조회
 GET http://localhost:8080/api/orders/users/2/items
 
 
 
 ### =========================
-### 6. 정산 API
+### 5. 정산 API
 ### =========================
 
-### 6-1. 정산 생성
-### 방금 생성한 브랜드 brandId = 11 기준
-### 결제 완료된 주문을 기준으로 totalSalesAmount / platformFee / settlementAmount 확인
-### 더미데이터 settlement_id 1~10 존재 → 새 settlementId는 보통 11
+### 5-1. 정산 생성
+### brandId = 11 기준
+### 기존 settlement_id 1~10 존재 → 새 settlementId는 보통 11
 POST http://localhost:8080/api/admin/settlements
 Content-Type: application/json
 
@@ -259,32 +250,30 @@ Content-Type: application/json
 }
 
 
-### 6-2. 정산 목록 조회
+### 5-2. 정산 목록 조회
 GET http://localhost:8080/api/admin/settlements
 
 
-### 6-3. 브랜드별 정산 조회
+### 5-3. 브랜드별 정산 조회
 GET http://localhost:8080/api/brands/11/settlements
 
 
-### 6-4. 정산 완료 처리
-### 6-1 응답에서 settlementId가 다르게 나오면 아래 11을 해당 settlementId로 변경
+### 5-4. 정산 완료 처리
+### 5-1 응답의 settlementId가 11이 아니면 아래 숫자 변경
 PATCH http://localhost:8080/api/admin/settlements/11/complete
 
 
 
 ### =========================
-### 7. 펀딩 캠페인 생성 / 조회 / 참여 API
+### 6. 펀딩 API
 ### =========================
 
-### 7-1. 기존 펀딩 상세 조회
-### 더미데이터 funding campaign 1번 사용
+### 6-1. 기존 펀딩 상세 조회
+### 기존 campaign_id = 1 사용
 GET http://localhost:8080/api/fundings/1
 
 
-### 7-2. 기존 펀딩 참여
-### campaignId = 1
-### userId = 2
+### 6-2. 기존 펀딩 참여
 ### currentAmount 증가 / progressRate 증가 확인
 POST http://localhost:8080/api/fundings/1/participate
 Content-Type: application/json
@@ -295,17 +284,17 @@ Content-Type: application/json
 }
 
 
-### 7-3. 펀딩 참여 이력 조회 - campaign 기준
+### 6-3. 펀딩 참여 이력 조회 - campaign 기준
 GET http://localhost:8080/api/fundings/1/participations
 
 
-### 7-4. 펀딩 참여 이력 조회 - user 기준
+### 6-4. 펀딩 참여 이력 조회 - user 기준
 GET http://localhost:8080/api/fundings/users/2/participations
 
 
-### 7-5. 새 펀딩 생성
+### 6-5. 새 펀딩 생성
 ### 새 상품 productId = 41 기준
-### 기존 funding_id 1~8 존재 → 새 fundingId는 보통 9
+### 기존 campaign_id 1~8 존재 → 새 campaignId는 보통 9
 POST http://localhost:8080/api/fundings
 Content-Type: application/json
 
@@ -317,24 +306,23 @@ Content-Type: application/json
 }
 
 
-### 7-6. 새 펀딩 상세 조회
+### 6-6. 새 펀딩 상세 조회
 GET http://localhost:8080/api/fundings/9
 
 
-### 7-7. 새 펀딩 취소
-### 7-5 응답에서 campaignId가 다르게 나오면 아래 9를 해당 campaignId로 변경
+### 6-7. 새 펀딩 취소
+### 6-5 응답의 campaignId가 9가 아니면 아래 숫자 변경
 PATCH http://localhost:8080/api/fundings/9/cancel
 
 
 
 ### =========================
-### 8. 카카오 로그인 API
+### 7. Kakao Login API
 ### =========================
 
-### 8-1. Kakao Login - 구조 확인용
-### 실제 성공하려면 프론트에서 받은 실제 인가 code가 필요함
-### 또한 KAKAO_CLIENT_ID, KAKAO_REDIRECT_URI 환경변수 설정 필요
-### 발표에서는 "백엔드 연동 API 구현"으로 설명
+### 7-1. 카카오 로그인 구조 확인용
+### 실제 성공하려면 프론트에서 받은 실제 인가 code 필요
+### KAKAO_CLIENT_ID, KAKAO_REDIRECT_URI 환경변수 필요
 POST http://localhost:8080/api/auth/kakao
 Content-Type: application/json
 
@@ -345,12 +333,11 @@ Content-Type: application/json
 
 
 ### =========================
-### 9. PortOne 결제 검증 API
+### 8. PortOne 결제 검증 API
 ### =========================
 
-### 9-1. PortOne Payment Verify - 구조 확인용
-### 실제 성공하려면 PortOne 실제 paymentId와 PORTONE_API_SECRET 환경변수 필요
-### 발표에서는 "결제 검증 API 구조 구현"으로 설명
+### 8-1. PortOne 결제 검증 구조 확인용
+### 실제 성공하려면 실제 paymentId와 PORTONE_API_SECRET 환경변수 필요
 POST http://localhost:8080/api/payments/portone/verify
 Content-Type: application/json
 
@@ -360,51 +347,3 @@ Content-Type: application/json
   "expectedAmount": 69000,
   "paymentMethod": "CARD"
 }
-
-
-
-### =========================
-### 10. DB 캡처용 확인 SQL
-### 아래는 HTTP 요청이 아니라 MySQL 콘솔에서 실행
-### =========================
-
-### 브랜드 상태 확인
-### USE reown2;
-### SELECT brand_id, brand_name, business_number, owner_user_id, status, sales_status
-### FROM partner_brand
-### ORDER BY brand_id DESC;
-
-### 상품 상태 확인
-### SELECT product_id, brand_id, name, price, sale_type, status
-### FROM catalog_product
-### ORDER BY product_id DESC;
-
-### 장바구니 확인
-### SELECT *
-### FROM trade_cart_item
-### ORDER BY cart_id DESC;
-
-### 주문 / 배송 상태 확인
-### SELECT order_id, user_id, order_no, total_payment_amount, status, shipping_status, tracking_number
-### FROM trade_orders
-### ORDER BY order_id DESC;
-
-### 결제 확인
-### SELECT payment_id, order_id, amount, payment_method, status, paid_at
-### FROM trade_payments
-### ORDER BY payment_id DESC;
-
-### 정산 확인
-### SELECT settlement_id, brand_id, settlement_type, total_sales_amount, platform_fee, settlement_amount, status
-### FROM settlement
-### ORDER BY settlement_id DESC;
-
-### 펀딩 확인
-### SELECT campaign_id, product_id, target_amount, current_amount, funding_status
-### FROM trade_funding_campaign
-### ORDER BY campaign_id DESC;
-
-### 펀딩 참여 확인
-### SELECT participation_id, campaign_id, user_id, amount, status, created_at
-### FROM trade_funding_participation
-### ORDER BY participation_id DESC;
