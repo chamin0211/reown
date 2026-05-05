@@ -39,4 +39,4 @@ out/
 # Local / Secret config
 src/main/resources/application-local.yml
 src/main/resources/application-secret.yml
-.env
+.env.DS_Store
