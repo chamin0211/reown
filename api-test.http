@@ -141,8 +141,7 @@ Content-Type: application/json
 
 
 ### 3-3. 관리자 - 상품 승인
-### 상품 상태 WAITING → ON_SALE
-POST http://localhost:8080/api/cart/items
+PATCH http://localhost:8080/api/admin/products/41/approve
 
 
 ### 3-4. 상품 목록 조회

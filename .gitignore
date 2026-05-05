@@ -39,4 +39,13 @@ out/
 # Local / Secret config
 src/main/resources/application-local.yml
 src/main/resources/application-secret.yml
-.env.DS_Store
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# OS
+.DS_Store
