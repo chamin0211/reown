@@ -6,6 +6,7 @@ import com.reown.backend.trade.service.TradeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import com.reown.backend.trade.dto.CartItemQuantityUpdateRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,14 @@ public class CartController {
             @RequestParam Long userId
     ) {
         return tradeService.getCartItems(userId);
+    }
+
+    @PatchMapping("/items/{cartItemId}")
+    public CartItemResponse updateCartItemQuantity(
+            @PathVariable Long cartItemId,
+            @RequestBody CartItemQuantityUpdateRequest request
+    ) {
+        return tradeService.updateCartItemQuantity(cartItemId, request);
     }
 
     @DeleteMapping("/items/{cartItemId}")

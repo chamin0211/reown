@@ -74,6 +74,25 @@ public class TradeService {
     }
 
     @Transactional
+    public CartItemResponse updateCartItemQuantity(
+            Long cartItemId,
+            CartItemQuantityUpdateRequest request
+    ) {
+        TradeCartItem cartItem = cartItemRepository.findById(cartItemId)
+                .orElseThrow(() -> new IllegalArgumentException("장바구니 상품을 찾을 수 없습니다. cartItemId=" + cartItemId));
+
+        cartItem.updateQuantity(request.quantity());
+
+        ProductOption option = productOptionRepository.findById(cartItem.getOptionId())
+                .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + cartItem.getOptionId()));
+
+        Product product = productRepository.findById(option.getProductId())
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+        return CartItemResponse.from(cartItem, product, option);
+    }
+
+    @Transactional
     public void deleteCartItem(Long cartItemId) {
         if (!cartItemRepository.existsById(cartItemId)) {
             throw new IllegalArgumentException("장바구니 상품을 찾을 수 없습니다. cartItemId=" + cartItemId);

@@ -1,312 +1,202 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
-import { Smartphone } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { Header } from '../components/Header';
+import { signup } from '../api/authApi';
 
 export function SignupPage() {
-  const [isVerified, setIsVerified] = useState(false);
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    phone: '',
-  });
-  const [agreeAll, setAgreeAll] = useState(false);
-  const [agreements, setAgreements] = useState({
-    terms: false,
-    privacy: false,
-    marketing: false,
+    passwordConfirm: '',
+    nickname: '',
   });
 
-  const handleVerifyIdentity = () => {
-    // TODO: 실제 본인인증 로직 연동
-    console.log('본인인증 시작');
-    // 시뮬레이션: 본인인증 완료 후 자동 입력
-    setIsVerified(true);
-    setFormData({
-      ...formData,
-      name: '홍길동',
-      phone: '010-1234-5678',
-    });
-  };
+  const [loading, setLoading] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
   };
 
-  const handleAgreeAll = () => {
-    const newValue = !agreeAll;
-    setAgreeAll(newValue);
-    setAgreements({
-      terms: newValue,
-      privacy: newValue,
-      marketing: newValue,
-    });
+  const validateForm = () => {
+    if (!formData.email.trim()) {
+      alert('이메일을 입력해주세요.');
+      return false;
+    }
+
+    if (!formData.nickname.trim()) {
+      alert('닉네임을 입력해주세요.');
+      return false;
+    }
+
+    if (!formData.password.trim()) {
+      alert('비밀번호를 입력해주세요.');
+      return false;
+    }
+
+    if (formData.password.length < 4) {
+      alert('비밀번호는 최소 4자 이상 입력해주세요.');
+      return false;
+    }
+
+    if (formData.password !== formData.passwordConfirm) {
+      alert('비밀번호가 일치하지 않습니다.');
+      return false;
+    }
+
+    return true;
   };
 
-  const handleAgreementChange = (key: keyof typeof agreements) => {
-    const newAgreements = {
-      ...agreements,
-      [key]: !agreements[key],
-    };
-    setAgreements(newAgreements);
-    setAgreeAll(newAgreements.terms && newAgreements.privacy && newAgreements.marketing);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('Sign up:', formData);
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+
+    signup({
+      email: formData.email,
+      password: formData.password,
+      nickname: formData.nickname,
+      role: 'USER',
+    })
+        .then((user) => {
+          localStorage.setItem('loginUser', JSON.stringify(user));
+
+          alert(`${user.nickname}님 회원가입이 완료되었습니다.`);
+          navigate('/');
+        })
+        .catch((error) => {
+          console.error('회원가입 실패:', error);
+          alert('회원가입에 실패했습니다. 이미 사용 중인 이메일일 수 있습니다.');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center py-16 px-8">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <Link to="/">
-          <h1
-            className="text-4xl font-light tracking-wider text-center mb-16 cursor-pointer hover:opacity-70 transition-opacity"
-            style={{ color: '#101828' }}
-          >
-            re:own
-          </h1>
-        </Link>
+      <div className="min-h-screen bg-white">
+        <Header />
 
-        {/* Title */}
-        <h2
-          className="text-3xl font-light tracking-wide text-center mb-4"
-          style={{ color: '#101828' }}
-        >
-          Join re:own
-        </h2>
+        <main className="pt-28 pb-20">
+          <div className="max-w-md mx-auto px-6">
+            <div className="text-center mb-10">
+              <h1 className="text-4xl font-light tracking-wide text-gray-900 mb-3">
+                Join re:own
+              </h1>
+              <p className="text-sm text-gray-500 font-light">
+                새로운 패션 경험을 시작하세요
+              </p>
+            </div>
 
-        {/* Subtitle */}
-        <p className="text-sm font-light text-gray-500 text-center mb-12">
-          Identity verification is required to join re:own.
-        </p>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Verify Identity Button */}
-          {!isVerified && (
-            <button
-              type="button"
-              onClick={handleVerifyIdentity}
-              className="w-full flex items-center justify-center gap-3 text-sm font-light tracking-wide transition-all hover:opacity-80"
-              style={{
-                border: '0.5px solid #101828',
-                color: '#101828',
-                height: '56px'
-              }}
-            >
-              <Smartphone className="w-5 h-5" />
-              Verify Identity
-            </button>
-          )}
-
-          {/* Name (Auto-filled after verification) */}
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-light mb-2"
-              style={{ color: '#101828' }}
-            >
-              Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              disabled={isVerified}
-              className="w-full px-4 text-base text-gray-900 font-light outline-none transition-all focus:border-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
-              style={{ border: '0.5px solid #d1d5db', height: '52px' }}
-              placeholder={isVerified ? '' : 'Will be auto-filled after verification'}
-              required
-            />
-          </div>
-
-          {/* Phone Number (Auto-filled after verification) */}
-          <div>
-            <label
-              htmlFor="phone"
-              className="block text-sm font-light mb-2"
-              style={{ color: '#101828' }}
-            >
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              disabled={isVerified}
-              className="w-full px-4 text-base text-gray-900 font-light outline-none transition-all focus:border-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
-              style={{ border: '0.5px solid #d1d5db', height: '52px' }}
-              placeholder={isVerified ? '' : 'Will be auto-filled after verification'}
-              required
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-light mb-2"
-              style={{ color: '#101828' }}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className="w-full px-4 text-base text-gray-900 font-light outline-none transition-all focus:border-gray-400"
-              style={{ border: '0.5px solid #d1d5db', height: '52px' }}
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-
-          {/* Password */}
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-light mb-2"
-              style={{ color: '#101828' }}
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className="w-full px-4 text-base text-gray-900 font-light outline-none transition-all focus:border-gray-400"
-              style={{ border: '0.5px solid #d1d5db', height: '52px' }}
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-light mb-2"
-              style={{ color: '#101828' }}
-            >
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              className="w-full px-4 text-base text-gray-900 font-light outline-none transition-all focus:border-gray-400"
-              style={{ border: '0.5px solid #d1d5db', height: '52px' }}
-              placeholder="Confirm your password"
-              required
-            />
-          </div>
-
-          {/* Terms Agreement */}
-          <div className="pt-4 space-y-4">
-            <div
-              className="p-4"
-              style={{ border: '0.5px solid #e5e7eb', borderRadius: '4px' }}
-            >
-              {/* Agree All */}
-              <div className="flex items-center gap-3 pb-4 mb-4" style={{ borderBottom: '0.5px solid #e5e7eb' }}>
-                <input
-                  type="checkbox"
-                  id="agreeAll"
-                  checked={agreeAll}
-                  onChange={handleAgreeAll}
-                  className="w-5 h-5 rounded border-gray-300 cursor-pointer"
-                  style={{ accentColor: '#101828' }}
-                />
-                <label htmlFor="agreeAll" className="text-sm font-light cursor-pointer" style={{ color: '#101828' }}>
-                  Agree to all terms
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label
+                    htmlFor="email"
+                    className="block text-sm font-light text-gray-700 mb-2"
+                >
+                  Email
                 </label>
+
+                <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 text-base text-gray-900 font-light outline-none"
+                    style={{ border: '0.5px solid #d1d5db', height: '52px' }}
+                    placeholder="example@reown.com"
+                />
               </div>
 
-              {/* Individual Terms */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="terms"
-                    checked={agreements.terms}
-                    onChange={() => handleAgreementChange('terms')}
-                    className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                    style={{ accentColor: '#101828' }}
-                  />
-                  <label htmlFor="terms" className="text-xs font-light text-gray-600 cursor-pointer">
-                    Terms of Service (Required)
-                  </label>
-                </div>
+              <div>
+                <label
+                    htmlFor="nickname"
+                    className="block text-sm font-light text-gray-700 mb-2"
+                >
+                  Nickname
+                </label>
 
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="privacy"
-                    checked={agreements.privacy}
-                    onChange={() => handleAgreementChange('privacy')}
-                    className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                    style={{ accentColor: '#101828' }}
-                  />
-                  <label htmlFor="privacy" className="text-xs font-light text-gray-600 cursor-pointer">
-                    Privacy Policy (Required)
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="marketing"
-                    checked={agreements.marketing}
-                    onChange={() => handleAgreementChange('marketing')}
-                    className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                    style={{ accentColor: '#101828' }}
-                  />
-                  <label htmlFor="marketing" className="text-xs font-light text-gray-600 cursor-pointer">
-                    Marketing Communications (Optional)
-                  </label>
-                </div>
+                <input
+                    id="nickname"
+                    name="nickname"
+                    type="text"
+                    value={formData.nickname}
+                    onChange={handleChange}
+                    className="w-full px-4 text-base text-gray-900 font-light outline-none"
+                    style={{ border: '0.5px solid #d1d5db', height: '52px' }}
+                    placeholder="닉네임을 입력하세요"
+                />
               </div>
+
+              <div>
+                <label
+                    htmlFor="password"
+                    className="block text-sm font-light text-gray-700 mb-2"
+                >
+                  Password
+                </label>
+
+                <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full px-4 text-base text-gray-900 font-light outline-none"
+                    style={{ border: '0.5px solid #d1d5db', height: '52px' }}
+                    placeholder="비밀번호를 입력하세요"
+                />
+              </div>
+
+              <div>
+                <label
+                    htmlFor="passwordConfirm"
+                    className="block text-sm font-light text-gray-700 mb-2"
+                >
+                  Confirm Password
+                </label>
+
+                <input
+                    id="passwordConfirm"
+                    name="passwordConfirm"
+                    type="password"
+                    value={formData.passwordConfirm}
+                    onChange={handleChange}
+                    className="w-full px-4 text-base text-gray-900 font-light outline-none"
+                    style={{ border: '0.5px solid #d1d5db', height: '52px' }}
+                    placeholder="비밀번호를 다시 입력하세요"
+                />
+              </div>
+
+              <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full text-sm text-white tracking-widest font-light transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: '#101828', height: '56px' }}
+              >
+                {loading ? 'JOINING...' : 'JOIN RE:OWN'}
+              </button>
+            </form>
+
+            <div className="mt-8 text-center">
+              <p className="text-sm text-gray-500 font-light">
+                Already have an account?{' '}
+                <Link to="/login" className="text-gray-900 underline">
+                  Login
+                </Link>
+              </p>
             </div>
           </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={!isVerified || !agreements.terms || !agreements.privacy}
-            className="w-full text-sm text-white font-light tracking-widest transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#101828', height: '56px' }}
-          >
-            CREATE ACCOUNT
-          </button>
-        </form>
-
-        {/* Login Link */}
-        <div className="mt-8 text-center">
-          <p className="text-sm font-light text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login" className="font-light transition-colors" style={{ color: '#101828' }}>
-              Login
-            </Link>
-          </p>
-        </div>
+        </main>
       </div>
-    </div>
   );
 }

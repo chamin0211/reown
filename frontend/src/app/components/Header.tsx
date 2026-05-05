@@ -53,7 +53,7 @@ export function Header() {
               <Link to="/category/funding" className="text-gray-700 hover:text-gray-900 transition-colors">
                 펀딩
               </Link>
-              <Link to="/category/resell" className="text-gray-700 hover:text-gray-900 transition-colors">
+              <Link to="/resell" className="text-gray-700 hover:text-gray-900 transition-colors">
                 리셀
               </Link>
               <Link to="/vault" className="flex items-center gap-1 text-blue-900 hover:text-blue-700 transition-colors font-medium">

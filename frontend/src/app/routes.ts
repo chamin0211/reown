@@ -21,6 +21,9 @@ import { FAQDetailPage } from './pages/FAQDetailPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { FundingCheckoutPage } from './pages/FundingCheckoutPage';
 import { ErrorPage } from './pages/ErrorPage';
+import { ResellMarketPage } from './pages/ResellMarketPage';
+import { ResellDetailPage } from './pages/ResellDetailPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
 
 export const router = createBrowserRouter([
   {
@@ -126,6 +129,21 @@ export const router = createBrowserRouter([
   {
     path: '/funding-checkout',
     Component: FundingCheckoutPage,
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/resell',
+    Component: ResellMarketPage,
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/resell/:resellId',
+    Component: ResellDetailPage,
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/orders/:orderId',
+    Component: OrderDetailPage,
     ErrorBoundary: ErrorPage,
   },
 ]);

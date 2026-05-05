@@ -33,4 +33,12 @@ public class TradeCartItem {
     public void increaseQuantity(Integer quantity) {
         this.quantity += quantity;
     }
+
+    public void updateQuantity(Integer quantity) {
+        if (quantity == null || quantity < 1) {
+            throw new IllegalArgumentException("장바구니 수량은 1개 이상이어야 합니다.");
+        }
+
+        this.quantity = quantity;
+    }
 }

@@ -33,3 +33,15 @@ export function deleteCartItem(cartItemId: number): Promise<{ message: string; c
         method: "DELETE",
     });
 }
+
+export function updateCartItemQuantity(
+    cartItemId: number,
+    quantity: number
+): Promise<CartItemResponse> {
+    return api<CartItemResponse>(`/api/cart/items/${cartItemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+            quantity,
+        }),
+    });
+}

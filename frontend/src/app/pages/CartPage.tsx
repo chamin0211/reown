@@ -2,7 +2,7 @@ import { Trash2, Minus, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Header } from '../components/Header';
-import { deleteCartItem, getCartItems } from '../api/cartApi';
+import { deleteCartItem, getCartItems, updateCartItemQuantity } from '../api/cartApi';
 import type { CartItemResponse } from '../api/cartApi';
 
 interface LoginUser {
@@ -68,19 +68,32 @@ export function CartPage() {
     }
   };
 
-  const updateQuantity = (cartId: number, delta: number) => {
-    setCartItems((prevItems) =>
-        prevItems.map((item) =>
-            item.cartId === cartId
-                ? {
-                  ...item,
-                  quantity: Math.max(1, item.quantity + delta),
-                  totalPrice: item.unitPrice * Math.max(1, item.quantity + delta),
-                }
-                : item
-        )
-    );
-  };
+    const updateQuantity = (cartId: number, delta: number) => {
+        const targetItem = cartItems.find((item) => item.cartId === cartId);
+
+        if (!targetItem) {
+            return;
+        }
+
+        const nextQuantity = Math.max(1, targetItem.quantity + delta);
+
+        if (nextQuantity === targetItem.quantity) {
+            return;
+        }
+
+        updateCartItemQuantity(cartId, nextQuantity)
+            .then((updatedItem) => {
+                setCartItems((prevItems) =>
+                    prevItems.map((item) =>
+                        item.cartId === cartId ? updatedItem : item
+                    )
+                );
+            })
+            .catch((error) => {
+                console.error('장바구니 수량 변경 실패:', error);
+                alert('수량 변경에 실패했습니다.');
+            });
+    };
 
   const removeItem = (cartId: number) => {
     deleteCartItem(cartId)

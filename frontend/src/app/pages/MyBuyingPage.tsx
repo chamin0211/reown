@@ -217,8 +217,8 @@ export function MyBuyingPage() {
 
                               <button
                                   className="px-6 py-3 text-sm font-light tracking-wide transition-all hover:opacity-80"
-                                  style={{ border: '0.5px solid #101828', color: '#101828' }}
-                                  onClick={() => alert('배송 조회는 관리자 배송 처리 후 연결됩니다.')}
+                                  style={{border: '0.5px solid #101828', color: '#101828'}}
+                                  onClick={() => navigate(`/orders/${order.orderId}`)}
                               >
                                 Order Detail
                               </button>

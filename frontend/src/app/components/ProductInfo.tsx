@@ -1,4 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+    addWishlistItem,
+    deleteWishlistItemByProduct,
+    isProductWished,
+} from '../api/wishlistApi';
 import { useNavigate } from 'react-router';
 import { Heart, Share2, ShoppingCart } from 'lucide-react';
 import { addCartItem } from '../api/cartApi';
@@ -48,6 +53,73 @@ export function ProductInfo({
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [wished, setWished] = useState(false);
+    useEffect(() => {
+        const savedUser = localStorage.getItem('loginUser');
+
+        if (!savedUser) {
+            return;
+        }
+
+        const loginUser = JSON.parse(savedUser);
+        const numericProductId = Number(productId);
+
+        if (Number.isNaN(numericProductId)) {
+            return;
+        }
+
+        isProductWished(loginUser.userId, numericProductId)
+            .then((result) => {
+                setWished(result.wished);
+            })
+            .catch((error) => {
+                console.error('찜 상태 조회 실패:', error);
+            });
+    }, [productId]);
+    const handleToggleWishlist = () => {
+        const savedUser = localStorage.getItem('loginUser');
+
+        if (!savedUser) {
+            alert('로그인이 필요합니다.');
+            navigate('/login');
+            return;
+        }
+
+        const loginUser = JSON.parse(savedUser);
+        const numericProductId = Number(productId);
+
+        if (Number.isNaN(numericProductId)) {
+            alert('상품 정보를 찾을 수 없습니다.');
+            return;
+        }
+
+        if (wished) {
+            deleteWishlistItemByProduct(loginUser.userId, numericProductId)
+                .then(() => {
+                    setWished(false);
+                    alert('찜 목록에서 삭제했습니다.');
+                })
+                .catch((error) => {
+                    console.error('찜 삭제 실패:', error);
+                    alert('찜 삭제에 실패했습니다.');
+                });
+
+            return;
+        }
+
+        addWishlistItem({
+            userId: loginUser.userId,
+            productId: numericProductId,
+        })
+            .then(() => {
+                setWished(true);
+                alert('찜 목록에 추가했습니다.');
+            })
+            .catch((error) => {
+                console.error('찜 추가 실패:', error);
+                alert('찜 추가에 실패했습니다.');
+            });
+    };
   const handleAddCart = () => {
     const savedUser = localStorage.getItem('loginUser');
 
@@ -142,15 +214,22 @@ export function ProductInfo({
 
       {/* 액션 버튼 (찜하기, 공유하기) */}
       <div className="flex gap-2">
-        <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <Heart className="w-5 h-5 text-gray-600" />
-        </button>
-        <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <Share2 className="w-5 h-5 text-gray-600" />
-        </button>
+          <button
+              onClick={handleToggleWishlist}
+              className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+              <Heart
+                  className={`w-5 h-5 ${
+                      wished ? 'fill-red-500 text-red-500' : 'text-gray-600'
+                  }`}
+              />
+          </button>
+          <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <Share2 className="w-5 h-5 text-gray-600"/>
+          </button>
       </div>
 
-      <div className="border-t border-gray-200 pt-6 space-y-6">
+        <div className="border-t border-gray-200 pt-6 space-y-6">
         {/* 컬러 선택 */}
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-3">

@@ -1,131 +1,159 @@
-import { Heart } from 'lucide-react';
-import { useState } from 'react';
-import { allProducts } from '../data/products';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { Heart, Trash2 } from 'lucide-react';
 import { Header } from '../components/Header';
+import { deleteWishlistItem, getWishlistItems } from '../api/wishlistApi';
+import type { WishItemResponse } from '../api/wishlistApi';
+
+interface LoginUser {
+  userId: number;
+  email: string;
+  nickname: string;
+  role: string;
+}
+
+function getProductImageUrl(item: WishItemResponse) {
+  if (item.thumbnailUrl && item.thumbnailUrl.startsWith('http')) {
+    return item.thumbnailUrl;
+  }
+
+  return `https://picsum.photos/seed/reown-product-${item.productId}/600/800`;
+}
+
+function getBrandName(brandId: number) {
+  const brandNames: Record<number, string> = {
+    1: 'NUE OUTFIT',
+    2: 'LUMIERE',
+    3: 'RAW EDGE',
+    4: 'SLOW THREAD',
+    5: 'MODERN HANGUL',
+    6: 'DAILY FORM',
+    7: 'ODD ATELIER',
+    8: 'MONO GROUND',
+    9: 'VERT LINE',
+    10: 'SEASONLESS',
+  };
+
+  return brandNames[brandId] ?? `Brand #${brandId}`;
+}
 
 export function WishlistPage() {
-  // Sample wishlist items - using first 12 products
-  const [wishlistItems, setWishlistItems] = useState(allProducts.slice(0, 12));
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
 
-  const toggleSelectAll = () => {
-    if (selectedItems.size === wishlistItems.length) {
-      setSelectedItems(new Set());
-    } else {
-      setSelectedItems(new Set(wishlistItems.map((item) => item.productId)));
+  const [wishlistItems, setWishlistItems] = useState<WishItemResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('loginUser');
+
+    if (!savedUser) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
     }
-  };
 
-  const deleteSelected = () => {
-    setWishlistItems(wishlistItems.filter((item) => !selectedItems.has(item.productId)));
-    setSelectedItems(new Set());
-  };
+    const loginUser = JSON.parse(savedUser) as LoginUser;
 
-  const toggleItemSelection = (productId: string) => {
-    const newSelected = new Set(selectedItems);
-    if (newSelected.has(productId)) {
-      newSelected.delete(productId);
-    } else {
-      newSelected.add(productId);
-    }
-    setSelectedItems(newSelected);
-  };
+    getWishlistItems(loginUser.userId)
+        .then(setWishlistItems)
+        .catch((error) => {
+          console.error('찜 목록 조회 실패:', error);
+          alert('찜 목록을 불러오지 못했습니다.');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+  }, [navigate]);
 
-  const removeFromWishlist = (productId: string) => {
-    setWishlistItems(wishlistItems.filter((item) => item.productId !== productId));
-    const newSelected = new Set(selectedItems);
-    newSelected.delete(productId);
-    setSelectedItems(newSelected);
+  const handleDelete = (wishId: number) => {
+    deleteWishlistItem(wishId)
+        .then(() => {
+          setWishlistItems((prevItems) => prevItems.filter((item) => item.wishId !== wishId));
+          alert('찜 목록에서 삭제했습니다.');
+        })
+        .catch((error) => {
+          console.error('찜 삭제 실패:', error);
+          alert('찜 삭제에 실패했습니다.');
+        });
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
+      <div className="min-h-screen bg-white">
+        <Header />
 
-      <div className="pt-28 pb-20">
-        <div className="max-w-[1400px] mx-auto px-12">
-          {/* Top Bar */}
-          <div className="flex items-center justify-between mb-16 pb-10" style={{ borderBottom: '0.5px solid #d1d5db' }}>
-            <h1 className="text-5xl font-light tracking-wider text-gray-900">
-              WISH <span className="text-3xl text-gray-400">({wishlistItems.length})</span>
-            </h1>
-            <div className="flex items-center gap-8">
-              <button
-                onClick={toggleSelectAll}
-                className="text-sm font-light text-gray-600 hover:text-blue-900 transition-colors tracking-wide"
-              >
-                {selectedItems.size === wishlistItems.length ? 'Deselect All' : 'Select All'}
-              </button>
-              <button
-                onClick={deleteSelected}
-                disabled={selectedItems.size === 0}
-                className="text-sm font-light text-gray-600 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed tracking-wide"
-              >
-                Delete
-              </button>
+        <div className="pt-28 pb-20">
+          <div className="max-w-[1200px] mx-auto px-8">
+            <div className="mb-12">
+              <h1 className="text-4xl font-light tracking-wide text-gray-900 mb-2">
+                Wishlist
+              </h1>
+              <p className="text-sm text-gray-500 font-light">
+                {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'}
+              </p>
             </div>
-          </div>
 
-          {/* 4-Column Grid */}
-          {wishlistItems.length > 0 ? (
-            <div className="grid grid-cols-4 gap-10">
-              {wishlistItems.map((product) => (
-                <div key={product.productId} className="group flex flex-col h-full">
-                  {/* Product Card */}
-                  <div className="relative mb-5">
-                    {/* Product Image */}
-                    <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden">
-                      <img
-                        src={product.ogImageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-
-                      {/* Heart Icon - Top Right */}
-                      <button
-                        onClick={() => removeFromWishlist(product.productId)}
-                        className="absolute top-5 right-5 w-11 h-11 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-all shadow-sm"
-                      >
-                        <Heart className="w-5 h-5" style={{ fill: '#1e3a8a', color: '#1e3a8a' }} />
-                      </button>
-
-                      {/* Selection Checkbox */}
-                      <div className="absolute top-5 left-5">
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.has(product.productId)}
-                          onChange={() => toggleItemSelection(product.productId)}
-                          className="w-5 h-5 rounded border-gray-300 cursor-pointer"
-                          style={{ accentColor: '#1e3a8a' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Product Info */}
-                  <div className="space-y-2 mb-5">
-                    <p className="text-xs text-gray-500 uppercase tracking-widest font-light truncate">{product.brandName}</p>
-                    <h3 className="text-sm text-gray-900 font-light truncate">{product.name}</h3>
-                    <p className="text-sm text-gray-900 font-light">₩{product.price.toLocaleString()}</p>
-                  </div>
-
-                  {/* Add to Cart Button */}
-                  <button
-                    className="w-full py-3 text-xs text-gray-900 hover:bg-gray-50 transition-colors tracking-widest font-light mt-auto"
-                    style={{ border: '0.5px solid #d1d5db' }}
-                  >
-                    ADD TO CART
-                  </button>
+            {loading ? (
+                <div className="text-center py-32">
+                  <Heart className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-gray-500 text-lg font-light">찜 목록을 불러오는 중입니다...</p>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-32">
-              <p className="text-gray-400 text-xl font-light tracking-wide">Your wishlist is empty</p>
-            </div>
-          )}
+            ) : wishlistItems.length > 0 ? (
+                <div className="grid grid-cols-4 gap-8">
+                  {wishlistItems.map((item) => (
+                      <div key={item.wishId} className="group">
+                        <Link to={`/product/${item.productId}`}>
+                          <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-4">
+                            <img
+                                src={getProductImageUrl(item)}
+                                alt={item.productName}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                        </Link>
+
+                        <div className="flex items-start justify-between gap-3">
+                          <Link to={`/product/${item.productId}`} className="min-w-0">
+                            <p className="text-xs text-gray-500 uppercase tracking-widest font-light mb-1 truncate">
+                              {getBrandName(item.brandId)}
+                            </p>
+
+                            <h3 className="text-sm text-gray-900 font-light mb-2 truncate">
+                              {item.productName}
+                            </h3>
+
+                            <p className="text-base text-gray-900 font-medium">
+                              ₩{item.price.toLocaleString()}
+                            </p>
+                          </Link>
+
+                          <button
+                              onClick={() => handleDelete(item.wishId)}
+                              className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                              title="찜 삭제"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                  ))}
+                </div>
+            ) : (
+                <div className="text-center py-32">
+                  <Heart className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-gray-400 text-xl font-light tracking-wide mb-4">
+                    Your wishlist is empty
+                  </p>
+                  <Link
+                      to="/"
+                      className="inline-block px-8 py-3 text-sm text-white tracking-widest font-light"
+                      style={{ backgroundColor: '#1e3a8a' }}
+                  >
+                    CONTINUE SHOPPING
+                  </Link>
+                </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
   );
 }
