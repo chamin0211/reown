@@ -6,9 +6,15 @@ import com.reown.backend.auth.dto.SignupRequest;
 import com.reown.backend.auth.entity.User;
 import com.reown.backend.auth.entity.UserRole;
 import com.reown.backend.auth.repository.UserRepository;
+import com.reown.backend.brand.entity.Brand;
+import com.reown.backend.brand.repository.BrandRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -16,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final BrandRepository brandRepository;
 
     @Transactional
     public AuthResponse signup(SignupRequest request) {
@@ -26,7 +33,7 @@ public class AuthService {
         UserRole role = request.role() != null ? request.role() : UserRole.USER;
         User user = new User(request.email(), request.password(), request.nickname(), role);
 
-        return AuthResponse.from(userRepository.save(user));
+        return toAuthResponse(userRepository.save(user));
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -37,6 +44,27 @@ public class AuthService {
             throw new IllegalArgumentException("이메일 또는 비밀번호가 일치하지 않습니다.");
         }
 
-        return AuthResponse.from(user);
+        return toAuthResponse(user);
+    }
+
+    private AuthResponse toAuthResponse(User user) {
+        if (user.getRole() != UserRole.SELLER) {
+            return AuthResponse.from(user);
+        }
+
+        Optional<Brand> approvedBrand = findRepresentativeBrand(user.getUserId());
+
+        return approvedBrand
+                .map(brand -> AuthResponse.from(user, brand.getBrandId(), brand.getBrandName()))
+                .orElseGet(() -> AuthResponse.from(user));
+    }
+
+    private Optional<Brand> findRepresentativeBrand(Long ownerUserId) {
+        List<Brand> brands = brandRepository.findByOwnerUserId(ownerUserId);
+
+        return brands.stream()
+                .filter(brand -> "APPROVED".equalsIgnoreCase(brand.getStatus()))
+                .min(Comparator.comparing(Brand::getBrandId))
+                .or(() -> brands.stream().min(Comparator.comparing(Brand::getBrandId)));
     }
 }

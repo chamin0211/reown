@@ -2,6 +2,7 @@ package com.reown.backend.catalog.controller;
 
 import com.reown.backend.catalog.dto.ProductCreateRequest;
 import com.reown.backend.catalog.dto.ProductDetailResponse;
+import com.reown.backend.catalog.dto.ProductListResponse;
 import com.reown.backend.catalog.dto.ProductOptionCreateRequest;
 import com.reown.backend.catalog.dto.ProductOptionResponse;
 import com.reown.backend.catalog.dto.ProductUpdateRequest;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -18,6 +20,20 @@ import java.util.Map;
 public class ProductAdminController {
 
     private final CatalogService catalogService;
+
+    @GetMapping
+    public List<ProductListResponse> getProducts(
+            @RequestParam(required = false) String status
+    ) {
+        return catalogService.getAdminProducts(status);
+    }
+
+    @GetMapping("/{productId}")
+    public ProductDetailResponse getProductDetail(
+            @PathVariable Long productId
+    ) {
+        return catalogService.getAdminProductDetail(productId);
+    }
 
     @PostMapping
     public ProductDetailResponse createProduct(
@@ -33,7 +49,6 @@ public class ProductAdminController {
     ) {
         return catalogService.updateProduct(productId, request);
     }
-
 
     @PatchMapping("/{productId}/approve")
     public ProductDetailResponse approveProduct(

@@ -8,9 +8,12 @@ import java.util.List;
 public record ProductDetailResponse(
         Long productId,
         Long brandId,
+        String brandName,
         String name,
         String thumbnailUrl,
         Integer price,
+        String categoryName,
+        String description,
         Integer weightG,
         Integer maxPurchasePerUser,
         String saleType,
@@ -23,12 +26,23 @@ public record ProductDetailResponse(
             Product product,
             List<ProductOptionResponse> options
     ) {
+        return from(product, null, options);
+    }
+
+    public static ProductDetailResponse from(
+            Product product,
+            String brandName,
+            List<ProductOptionResponse> options
+    ) {
         return new ProductDetailResponse(
                 product.getProductId(),
                 product.getBrandId(),
+                brandName,
                 product.getName(),
                 product.getThumbnailUrl(),
                 product.getPrice(),
+                product.getCategoryName(),
+                product.getDescription(),
                 product.getWeightG(),
                 product.getMaxPurchasePerUser(),
                 product.getSaleType(),

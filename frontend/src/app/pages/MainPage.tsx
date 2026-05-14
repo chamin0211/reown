@@ -8,6 +8,7 @@ import { ResellCard } from '../components/ResellCard';
 import { Link } from 'react-router';
 import type { Product } from '../data/products';
 import { getProducts } from '../api/productApi';
+import { getFundingProducts } from '../api/fundingApi';
 
 
 export function MainPage() {
@@ -15,14 +16,44 @@ export function MainPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getProducts()
-        .then(setProducts)
-        .catch((error) => {
-          console.error('상품 목록 조회 실패:', error);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+    let cancelled = false;
+
+    const loadProducts = async () => {
+      setLoading(true);
+
+      const [normalResult, fundingResult] = await Promise.allSettled([
+        getProducts(),
+        getFundingProducts(),
+      ]);
+
+      if (normalResult.status === 'rejected') {
+        console.error('일반 상품 목록 조회 실패:', normalResult.reason);
+      }
+
+      if (fundingResult.status === 'rejected') {
+        console.error('펀딩 상품 목록 조회 실패:', fundingResult.reason);
+      }
+
+      const normalProducts = normalResult.status === 'fulfilled' ? normalResult.value : [];
+      const fundingProductsFromApi = fundingResult.status === 'fulfilled' ? fundingResult.value : [];
+
+      const normalWithoutFunding = normalProducts.filter(
+        (product) => product.saleType !== 'FUNDING'
+      );
+
+      const mergedProducts = [...fundingProductsFromApi, ...normalWithoutFunding];
+
+      if (!cancelled) {
+        setProducts(mergedProducts);
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const fundingProducts = products.filter((p) => p.saleType === 'FUNDING').slice(0, 3);
@@ -53,7 +84,7 @@ export function MainPage() {
             {/* 펀딩 섹션 */}
             <ProductSection title="진행중인 펀딩" id="funding" linkHref="/category/funding">
               {fundingProducts.map((product) => (
-                  <Link to={`/product/${product.productId}`} key={product.productId}>
+                  <Link to={product.fundingCampaignId ? `/funding/${product.fundingCampaignId}` : `/product/${product.productId}`} key={product.productId}>
                     <FundingCard {...product} />
                   </Link>
               ))}

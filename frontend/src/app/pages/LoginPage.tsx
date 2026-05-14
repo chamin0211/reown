@@ -1,15 +1,27 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Header } from '../components/Header';
 import { login } from '../api/authApi';
+import { getKakaoLoginUrl } from '../api/kakaoAuthApi';
+import { getDefaultPathByRole, getLoginUser, saveLoginUser } from '../auth/session';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+
+  useEffect(() => {
+    const loginUser = getLoginUser();
+    if (loginUser) {
+      // 이미 로그인되어 있으면 뒤로가기로 로그인 화면에 돌아와도
+      // 다른 계정으로 다시 로그인하지 못하게 역할별 기본 화면으로 돌려보냅니다.
+      navigate(getDefaultPathByRole(loginUser.role), { replace: true });
+    }
+  }, [navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -21,16 +33,36 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const currentUser = getLoginUser();
+    if (currentUser) {
+      alert('이미 로그인되어 있습니다. 다른 계정으로 로그인하려면 먼저 로그아웃해주세요.');
+      navigate(getDefaultPathByRole(currentUser.role), { replace: true });
+      return;
+    }
+
     try {
       const user = await login(formData.email, formData.password);
 
-      localStorage.setItem('loginUser', JSON.stringify(user));
+      saveLoginUser(user);
 
       alert(`${user.nickname}님 로그인 성공`);
-      navigate('/');
+      const redirectPath = searchParams.get('redirect');
+      // replace를 쓰지 않으면 뒤로가기를 눌렀을 때 /login으로 돌아가고,
+      // LoginPage의 기존 로그인 감지 로직이 다시 역할별 기본 화면으로 돌려보냅니다.
+      // 그래서 셀러/관리자가 뒤로가기로 사용자 메인에 섞여 들어가는 문제를 막을 수 있습니다.
+      navigate(redirectPath || getDefaultPathByRole(user.role));
     } catch (error) {
       console.error('로그인 실패:', error);
       alert('로그인 실패. 이메일 또는 비밀번호를 확인해주세요.');
+    }
+  };
+
+  const handleKakaoLogin = () => {
+    try {
+      window.location.href = getKakaoLoginUrl();
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : '카카오 로그인 설정을 확인해주세요.');
     }
   };
 
@@ -102,6 +134,31 @@ export function LoginPage() {
                 style={{ backgroundColor: '#101828', height: '56px' }}
               >
                 LOGIN
+              </button>
+
+
+              <button
+                type="button"
+                onClick={handleKakaoLogin}
+                className="w-full text-sm font-medium tracking-wide transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#FEE500', color: '#191919', height: '52px' }}
+              >
+                카카오로 로그인
+              </button>
+
+              {/* Sign Up Button */}
+              <button
+                type="button"
+                onClick={() => navigate('/signup')}
+                className="w-full text-sm font-light tracking-widest transition-colors hover:bg-gray-50"
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#101828',
+                  border: '0.5px solid #101828',
+                  height: '52px',
+                }}
+              >
+                회원가입
               </button>
 
               {/* Find ID / Password Links */}

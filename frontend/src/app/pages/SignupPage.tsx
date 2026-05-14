@@ -67,10 +67,11 @@ export function SignupPage() {
       role: 'USER',
     })
         .then((user) => {
-          localStorage.setItem('loginUser', JSON.stringify(user));
+          // 회원가입 후 자동 로그인하지 않고, 사용자가 직접 로그인하도록 처리합니다.
+          localStorage.removeItem('loginUser');
 
-          alert(`${user.nickname}님 회원가입이 완료되었습니다.`);
-          navigate('/');
+          alert(`${user.nickname}님 회원가입이 완료되었습니다. 로그인 페이지에서 다시 로그인해주세요.`);
+          navigate('/login');
         })
         .catch((error) => {
           console.error('회원가입 실패:', error);

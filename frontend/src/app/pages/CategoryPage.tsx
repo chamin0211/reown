@@ -7,6 +7,7 @@ import { GridLayoutSwitcher } from '../components/GridLayoutSwitcher';
 import { AdaptiveProductCard } from '../components/AdaptiveProductCard';
 import { ChevronDown } from 'lucide-react';
 import { getProducts } from '../api/productApi';
+import { getFundingProducts } from '../api/fundingApi';
 import type { Product } from '../data/products';
 
 const categoryInfo: Record<string, { title: string; description: string }> = {
@@ -103,7 +104,11 @@ export function CategoryPage() {
   useEffect(() => {
     setLoading(true);
 
-    getProducts()
+    const loadProducts = currentCategory === 'funding'
+        ? getFundingProducts()
+        : getProducts();
+
+    loadProducts
         .then(setProducts)
         .catch((error) => {
           console.error('카테고리 상품 조회 실패:', error);
@@ -112,7 +117,7 @@ export function CategoryPage() {
         .finally(() => {
           setLoading(false);
         });
-  }, []);
+  }, [currentCategory]);
 
   const filteredProducts = filterProductsByCategory(products, currentCategory).map((product) => ({
     ...product,
@@ -251,7 +256,10 @@ export function CategoryPage() {
                   <>
                     <div className={`grid ${gridColsClass[gridColumns]} gap-6`}>
                       {sortedProducts.map((product) => (
-                          <Link to={`/product/${product.productId}`} key={product.productId}>
+                          <Link
+                            to={product.saleType === 'FUNDING' && product.fundingCampaignId ? `/funding/${product.fundingCampaignId}` : `/product/${product.productId}`}
+                            key={product.productId}
+                          >
                             <AdaptiveProductCard
                                 {...product}
                                 isFunding={product.saleType === 'FUNDING'}

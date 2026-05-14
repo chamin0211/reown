@@ -1,33 +1,34 @@
 import { Search, Heart, ShoppingCart, User, Shield } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { SearchDropdown } from './SearchDropdown';
 import { UserDropdown } from './UserDropdown';
-
-interface LoginUser {
-  userId: number;
-  email: string;
-  nickname: string;
-  role: string;
-}
+import { clearLoginUser, getLoginUser, LoginUser, SESSION_CHANGED_EVENT } from '../auth/session';
 
 export function Header() {
+  const navigate = useNavigate();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [loginUser, setLoginUser] = useState<LoginUser | null>(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('loginUser');
+    const syncLoginUser = () => setLoginUser(getLoginUser());
 
-    if (savedUser) {
-      setLoginUser(JSON.parse(savedUser));
-    }
+    syncLoginUser();
+    window.addEventListener(SESSION_CHANGED_EVENT, syncLoginUser);
+    window.addEventListener('storage', syncLoginUser);
+
+    return () => {
+      window.removeEventListener(SESSION_CHANGED_EVENT, syncLoginUser);
+      window.removeEventListener('storage', syncLoginUser);
+    };
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('loginUser');
+    clearLoginUser();
     setLoginUser(null);
     setIsUserDropdownOpen(false);
+    navigate('/', { replace: true });
   };
 
   return (
@@ -35,14 +36,12 @@ export function Header() {
       <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* 로고 */}
             <div className="flex-shrink-0">
               <Link to="/">
                 <h1 className="text-2xl font-bold text-gray-900 cursor-pointer hover:text-gray-700 transition-colors">re:own</h1>
               </Link>
             </div>
 
-            {/* 중앙 네비게이션 */}
             <nav className="hidden md:flex items-center space-x-8">
               <Link to="/category/brand-store" className="text-gray-700 hover:text-gray-900 transition-colors">
                 브랜드 스토어
@@ -62,7 +61,6 @@ export function Header() {
               </Link>
             </nav>
 
-            {/* 우측 아이콘 메뉴 */}
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
@@ -84,11 +82,12 @@ export function Header() {
                   <User className="w-5 h-5" />
                 </button>
                 <UserDropdown
-                    isOpen={isUserDropdownOpen}
-                    onClose={() => setIsUserDropdownOpen(false)}
-                    isLoggedIn={!!loginUser}
-                    userName={loginUser?.nickname}
-                    onLogout={handleLogout}
+                  isOpen={isUserDropdownOpen}
+                  onClose={() => setIsUserDropdownOpen(false)}
+                  isLoggedIn={!!loginUser}
+                  userName={loginUser?.nickname}
+                  userRole={loginUser?.role}
+                  onLogout={handleLogout}
                 />
               </div>
             </div>

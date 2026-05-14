@@ -9,6 +9,8 @@ public record ProductUpdateRequest(
         @PositiveOrZero
         Integer price,
 
+        String categoryName,
+        String description,
         Integer weightG,
         Integer maxPurchasePerUser,
         String saleType,

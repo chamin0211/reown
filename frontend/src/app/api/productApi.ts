@@ -4,11 +4,15 @@ import type { Product, SaleType } from "../data/products";
 interface ProductListResponse {
     productId: number;
     brandId: number;
+    brandName?: string | null;
     name: string;
     thumbnailUrl: string | null;
     price: number;
+    categoryName?: string | null;
+    description?: string | null;
     saleType: string;
     status: string;
+    createdAt?: string;
 }
 
 interface ProductOptionResponse {
@@ -89,7 +93,7 @@ function toProduct(data: ProductListResponse | ProductDetailResponse): Product {
     return {
         productId: String(data.productId),
         name: data.name,
-        brandName: getBrandName(data.brandId),
+        brandName: data.brandName || getBrandName(data.brandId),
         price: data.price,
         saleType,
         ogImageUrl: imageUrl,
@@ -97,7 +101,7 @@ function toProduct(data: ProductListResponse | ProductDetailResponse): Product {
         availableSizes,
         availableColors,
         options,
-        description: `${data.name} 상품 상세 정보입니다.`,
+        description: data.description || `${data.name} 상품 상세 정보입니다.`,
         sizeGuide: availableSizes.map((size) => ({
             label: size,
             shoulder: "-",

@@ -29,6 +29,13 @@ public class Product {
     @Column(name = "price", nullable = false)
     private Integer price;
 
+    @Column(name = "category_name")
+    private String categoryName;
+
+    @Lob
+    @Column(name = "description")
+    private String description;
+
     @Column(name = "weight_g")
     private Integer weightG;
 
@@ -52,6 +59,8 @@ public class Product {
             String name,
             String thumbnailUrl,
             Integer price,
+            String categoryName,
+            String description,
             Integer weightG,
             Integer maxPurchasePerUser,
             String saleType,
@@ -62,6 +71,8 @@ public class Product {
         this.name = name;
         this.thumbnailUrl = thumbnailUrl;
         this.price = price;
+        this.categoryName = categoryName;
+        this.description = description;
         this.weightG = weightG;
         this.maxPurchasePerUser = maxPurchasePerUser;
         this.saleType = saleType;
@@ -74,6 +85,8 @@ public class Product {
             String name,
             String thumbnailUrl,
             Integer price,
+            String categoryName,
+            String description,
             Integer weightG,
             Integer maxPurchasePerUser,
             String saleType,
@@ -90,6 +103,14 @@ public class Product {
 
         if (price != null) {
             this.price = price;
+        }
+
+        if (categoryName != null) {
+            this.categoryName = categoryName;
+        }
+
+        if (description != null) {
+            this.description = description;
         }
 
         if (weightG != null) {

@@ -47,7 +47,14 @@ export interface Product {
     images?: string[];
   }[];
   // FUNDING 전용
+  fundingCampaignId?: number;
   fundingAchievementRate?: number;
+  fundingTargetAmount?: number;
+  fundingCurrentAmount?: number;
+  fundingRemainingAmount?: number;
+  fundingStatus?: string;
+  fundingStartDate?: string;
+  fundingEndDate?: string;
   productionStages?: TimelineStage[];
   remainingDays?: number;
   // RESELL 전용
