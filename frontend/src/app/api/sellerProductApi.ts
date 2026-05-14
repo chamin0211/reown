@@ -4,6 +4,7 @@ import type {
   ProductDetailResponse,
   ProductListResponse,
   ProductStatus,
+  ProductUpdateRequest,
 } from './adminProductApi';
 
 export function getSellerProducts(
@@ -26,5 +27,25 @@ export function createSellerProduct(data: ProductCreateRequest): Promise<Product
   return api<ProductDetailResponse>('/api/seller/products', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export function updateSellerProduct(
+  brandId: number,
+  productId: number | string,
+  data: ProductUpdateRequest
+): Promise<ProductDetailResponse> {
+  return api<ProductDetailResponse>(`/api/seller/products/${productId}?brandId=${brandId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteSellerProduct(
+  brandId: number,
+  productId: number | string
+): Promise<{ message: string; productId: string }> {
+  return api<{ message: string; productId: string }>(`/api/seller/products/${productId}?brandId=${brandId}`, {
+    method: 'DELETE',
   });
 }

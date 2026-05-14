@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles: Array<'BRAND_SELLER' | 'DESIGNER' | 'ADMIN'>;
+  allowedRoles: Array<'BRAND_SELLER' | 'DESIGNER'>;
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -16,7 +16,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
   }
 
-  if (!allowedRoles.includes(roleType as 'BRAND_SELLER' | 'DESIGNER' | 'ADMIN')) {
+  if (!allowedRoles.includes(roleType as 'BRAND_SELLER' | 'DESIGNER')) {
     return <AccessDenied />;
   }
 
@@ -39,7 +39,7 @@ function AccessDenied() {
         </div>
         <h2 className="text-xl font-bold text-gray-900 mb-2">접근 권한이 없습니다</h2>
         <p className="text-gray-600 mb-6">
-          이 페이지는 셀러 또는 관리자 권한이 필요합니다.<br />
+          이 페이지는 셀러 권한이 필요합니다.<br />
           다른 권한 계정으로 접속하려면 먼저 로그아웃해야 합니다.
         </p>
         <div className="flex gap-3 justify-center">

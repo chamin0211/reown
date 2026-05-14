@@ -64,8 +64,7 @@ export function isAdminRole(role?: string | null): boolean {
 }
 
 export function canUseSellerCenter(role?: string | null): boolean {
-  const normalizedRole = normalizeRole(role);
-  return normalizedRole === 'SELLER' || normalizedRole === 'ADMIN';
+  return normalizeRole(role) === 'SELLER';
 }
 
 export function canUseAdminDashboard(role?: string | null): boolean {

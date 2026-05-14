@@ -40,7 +40,6 @@ const menuItems: MenuItem[] = [
     icon: <Users size={20} />, 
     label: '브랜드/셀러 관리', 
     path: '/admin/seller',
-    badge: 'NEW',
     submenus: [
       { label: '입점 심사', path: '/admin/seller/onboarding' },
       { label: '전체 셀러 목록', path: '/admin/seller/list' },
@@ -51,7 +50,6 @@ const menuItems: MenuItem[] = [
     icon: <UserCog size={20} />, 
     label: '회원 관리', 
     path: '/admin/users',
-    badge: 'NEW',
     submenus: [
       { label: '전체 유저', path: '/admin/users/all' },
       { label: '신고/제재 목록', path: '/admin/users/reports' },
@@ -91,7 +89,6 @@ const menuItems: MenuItem[] = [
     icon: <Flag size={20} />, 
     label: '콘텐츠 모더레이션', 
     path: '/admin/moderation',
-    badge: 'NEW',
     submenus: [
       { label: '부적절 리뷰/게시글', path: '/admin/moderation/content' },
       { label: '가품 판정 리포트', path: '/admin/moderation/fake-reports' },
@@ -101,7 +98,6 @@ const menuItems: MenuItem[] = [
     icon: <Settings size={20} />, 
     label: '시스템 설정', 
     path: '/admin/settings',
-    badge: 'NEW',
     submenus: [
       { label: '배너/팝업 관리', path: '/admin/settings/banners' },
       { label: '공지사항', path: '/admin/settings/notices' },
@@ -142,7 +138,7 @@ export function SuperAdminSidebar() {
   };
   
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(getInitialExpandedMenus);
-  const [notificationCount] = useState(3);
+  const [notificationCount] = useState(0);
 
   const handleLogout = () => {
     if (!confirm('로그아웃하시겠습니까?')) return;

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Plus, Search, Filter, Lock, Sparkles, RefreshCw } from "lucide-react";
+import { Plus, Search, Filter, Lock, Sparkles, RefreshCw, Pencil, Trash2, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { getSellerProducts } from "../../api/sellerProductApi";
-import type { ProductListResponse } from "../../api/adminProductApi";
+import { deleteSellerProduct, getSellerProducts, updateSellerProduct } from "../../api/sellerProductApi";
+import type { ProductListResponse, ProductUpdateRequest } from "../../api/adminProductApi";
 
 function formatPrice(price: number) {
   return `₩${price.toLocaleString()}`;
@@ -34,6 +34,28 @@ function getStatusClass(status: string) {
   return map[status] ?? "bg-gray-100 text-gray-700";
 }
 
+interface ProductEditFormState {
+  productId: number;
+  name: string;
+  price: string;
+  categoryName: string;
+  description: string;
+  thumbnailUrl: string;
+  saleType: string;
+}
+
+function toEditForm(product: ProductListResponse): ProductEditFormState {
+  return {
+    productId: product.productId,
+    name: product.name ?? "",
+    price: String(product.price ?? 0),
+    categoryName: product.categoryName ?? "",
+    description: product.description ?? "",
+    thumbnailUrl: product.thumbnailUrl ?? "",
+    saleType: product.saleType || "NORMAL",
+  };
+}
+
 export function ProductManagement() {
   const navigate = useNavigate();
   const { roleType, brandId } = useAuth();
@@ -41,8 +63,10 @@ export function ProductManagement() {
 
   const [products, setProducts] = useState<ProductListResponse[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [editForm, setEditForm] = useState<ProductEditFormState | null>(null);
 
   const loadProducts = async () => {
     try {
@@ -88,6 +112,66 @@ export function ProductManagement() {
       rejected: products.filter((product) => product.status === "REJECTED").length,
     };
   }, [products]);
+
+  const handleEditSubmit = async () => {
+    if (!editForm) return;
+
+    const trimmedName = editForm.name.trim();
+    const price = Number(editForm.price);
+
+    if (!trimmedName) {
+      alert("상품명을 입력해주세요.");
+      return;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      alert("판매가격은 0원 이상 숫자로 입력해주세요.");
+      return;
+    }
+
+    const payload: ProductUpdateRequest = {
+      name: trimmedName,
+      price,
+      categoryName: editForm.categoryName.trim() || null,
+      description: editForm.description.trim() || null,
+      thumbnailUrl: editForm.thumbnailUrl.trim() || null,
+      saleType: editForm.saleType || "NORMAL",
+    };
+
+    try {
+      setSaving(true);
+      await updateSellerProduct(brandId, editForm.productId, payload);
+      alert("상품 정보가 수정되었습니다. 수정된 상품은 관리자 재승인을 위해 승인 대기 상태로 변경됩니다.");
+      setEditForm(null);
+      await loadProducts();
+      setStatusFilter("ALL");
+    } catch (error) {
+      console.error("상품 수정 실패:", error);
+      alert(error instanceof Error ? error.message : "상품 수정에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (product: ProductListResponse) => {
+    const ok = window.confirm(
+      `상품을 삭제 처리할까요?\n\n상품명: ${product.name}\n\n삭제 처리하면 DB에서는 DELETED 상태가 되고 사용자/셀러 상품 목록에서 숨겨집니다.`
+    );
+
+    if (!ok) return;
+
+    try {
+      setLoading(true);
+      await deleteSellerProduct(brandId, product.productId);
+      alert("상품이 삭제 처리되었습니다.");
+      await loadProducts();
+    } catch (error) {
+      console.error("상품 삭제 실패:", error);
+      alert(error instanceof Error ? error.message : "상품 삭제에 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="p-8">
@@ -212,6 +296,7 @@ export function ProductManagement() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">가격</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">상태</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">등록일</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -249,6 +334,26 @@ export function ProductManagement() {
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
                         {formatDate(product.createdAt)}
                       </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(toEditForm(product))}
+                            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            <Pencil className="h-4 w-4" />
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProduct(product)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            삭제
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -257,6 +362,113 @@ export function ProductManagement() {
           </div>
         )}
       </div>
+
+      {editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">상품 수정</h2>
+                <p className="mt-1 text-sm text-gray-500">수정 후 상품 상태는 관리자 승인 대기로 변경됩니다.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditForm(null)}
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">상품명</label>
+                <input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">판매가격</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.price}
+                    onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">카테고리</label>
+                  <input
+                    value={editForm.categoryName}
+                    onChange={(e) => setEditForm({ ...editForm, categoryName: e.target.value })}
+                    placeholder="예: 상의, 아우터, 팬츠"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">상품 이미지 URL</label>
+                <input
+                  value={editForm.thumbnailUrl}
+                  onChange={(e) => setEditForm({ ...editForm, thumbnailUrl: e.target.value })}
+                  placeholder="https://example.com/product.jpg"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">판매 유형</label>
+                <select
+                  value={editForm.saleType}
+                  onChange={(e) => setEditForm({ ...editForm, saleType: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="NORMAL">일반 상품</option>
+                  <option value="FUNDING">펀딩 상품</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">상품 설명</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  rows={5}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                셀러가 상품 기본 정보를 수정하면 기존 판매중 상품도 다시 <strong>승인 대기</strong> 상태가 됩니다. 관리자 승인 후 사용자 상품 목록에 다시 노출됩니다.
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setEditForm(null)}
+                className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleEditSubmit}
+                disabled={saving}
+                className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? "저장 중..." : "수정 저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

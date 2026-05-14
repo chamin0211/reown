@@ -185,7 +185,7 @@ export const router = createBrowserRouter([
   {
     path: '/seller',
     element: (
-      <RoleProtectedRoute allowedRoles={['SELLER', 'ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['SELLER']}>
         <SellerAuthProvider>
           <SellerLayout />
         </SellerAuthProvider>
@@ -197,7 +197,7 @@ export const router = createBrowserRouter([
       {
         path: 'product/add',
         element: (
-          <SellerProtectedRoute allowedRoles={["BRAND_SELLER", "DESIGNER", "ADMIN"]}>
+          <SellerProtectedRoute allowedRoles={["BRAND_SELLER", "DESIGNER"]}>
             <SellerRegularProductForm />
           </SellerProtectedRoute>
         ),
@@ -205,7 +205,7 @@ export const router = createBrowserRouter([
       {
         path: 'limited-edition/new',
         element: (
-          <SellerProtectedRoute allowedRoles={["DESIGNER", "ADMIN"]}>
+          <SellerProtectedRoute allowedRoles={["DESIGNER"]}>
             <SellerLimitedEditionForm />
           </SellerProtectedRoute>
         ),

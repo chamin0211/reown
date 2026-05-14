@@ -58,6 +58,19 @@ export interface ProductCreateRequest {
   options?: ProductOptionCreateRequest[];
 }
 
+export interface ProductUpdateRequest {
+  name?: string | null;
+  thumbnailUrl?: string | null;
+  price?: number | null;
+  categoryName?: string | null;
+  description?: string | null;
+  weightG?: number | null;
+  maxPurchasePerUser?: number | null;
+  saleType?: ProductSaleType | string | null;
+  status?: ProductStatus | string | null;
+  displaySortOrder?: number | null;
+}
+
 export function getAdminProducts(status?: ProductStatus | string): Promise<ProductListResponse[]> {
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
   return api<ProductListResponse[]>(`/api/admin/products${query}`);
@@ -82,6 +95,16 @@ export function rejectProduct(productId: number | string): Promise<ProductDetail
 export function createAdminProduct(data: ProductCreateRequest): Promise<ProductDetailResponse> {
   return api<ProductDetailResponse>('/api/admin/products', {
     method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateAdminProduct(
+  productId: number | string,
+  data: ProductUpdateRequest
+): Promise<ProductDetailResponse> {
+  return api<ProductDetailResponse>(`/api/admin/products/${productId}`, {
+    method: 'PUT',
     body: JSON.stringify(data),
   });
 }

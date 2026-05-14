@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode } from 'react';
-import { canUseSellerCenter, getLoginUser, LoginUser, normalizeRole } from '../../auth/session';
+import { canUseSellerCenter, getLoginUser, getSellerBrandId, getSellerBrandName, LoginUser, normalizeRole } from '../../auth/session';
 
 type RoleType = 'BRAND_SELLER' | 'DESIGNER' | 'ADMIN' | 'USER';
 
@@ -15,9 +15,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 function getRoleType(role?: string | null): RoleType {
+  const upperRole = role?.toUpperCase();
   const normalizedRole = normalizeRole(role);
 
   if (normalizedRole === 'ADMIN') return 'ADMIN';
+  if (upperRole === 'DESIGNER') return 'DESIGNER';
   if (normalizedRole === 'SELLER') return 'BRAND_SELLER';
 
   return 'USER';
@@ -25,12 +27,12 @@ function getRoleType(role?: string | null): RoleType {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const loginUser = getLoginUser();
-  const savedBrandId = Number(localStorage.getItem('sellerBrandId') ?? loginUser?.brandId ?? '1');
-  const savedBrandName = localStorage.getItem('sellerBrandName') ?? loginUser?.brandName;
+  const savedBrandId = getSellerBrandId() ?? loginUser?.brandId ?? null;
+  const savedBrandName = getSellerBrandName() ?? loginUser?.brandName;
 
   const auth: AuthContextType = {
     roleType: getRoleType(loginUser?.role),
-    brandId: Number.isFinite(savedBrandId) && savedBrandId > 0 ? savedBrandId : 1,
+    brandId: typeof savedBrandId === 'number' && Number.isFinite(savedBrandId) && savedBrandId > 0 ? savedBrandId : 1,
     brandName: savedBrandName || loginUser?.nickname || 'RE:OWN Seller',
     loginUser,
     isLoggedIn: !!loginUser,

@@ -94,9 +94,7 @@ public class CatalogService {
 
     public ProductDetailResponse getSellerProductDetail(Long brandId, Long productId) {
         Product product = getProduct(productId);
-        if (!product.getBrandId().equals(brandId)) {
-            throw new IllegalArgumentException("해당 브랜드의 상품이 아닙니다.");
-        }
+        assertProductBelongsToBrand(product, brandId);
         return toProductDetailResponse(product);
     }
 
@@ -138,6 +136,29 @@ public class CatalogService {
     }
 
     @Transactional
+    public ProductDetailResponse updateSellerProduct(Long brandId, Long productId, ProductUpdateRequest request) {
+        Product product = getProduct(productId);
+        assertProductBelongsToBrand(product, brandId);
+
+        // 셀러가 상품 내용을 수정하면 관리자 재검수가 필요하므로 다시 승인 대기 상태로 돌립니다.
+        // 프론트에서 status를 보내더라도 셀러 수정 API에서는 직접 상태 변경을 허용하지 않습니다.
+        product.update(
+                request.name(),
+                request.thumbnailUrl(),
+                request.price(),
+                request.categoryName(),
+                request.description(),
+                request.weightG(),
+                request.maxPurchasePerUser(),
+                request.saleType(),
+                STATUS_WAITING,
+                request.displaySortOrder()
+        );
+
+        return toProductDetailResponse(product);
+    }
+
+    @Transactional
     public ProductDetailResponse approveProduct(Long productId) {
         Product product = getProduct(productId);
         product.approve();
@@ -154,6 +175,13 @@ public class CatalogService {
     @Transactional
     public void deleteProduct(Long productId) {
         Product product = getProduct(productId);
+        product.delete();
+    }
+
+    @Transactional
+    public void deleteSellerProduct(Long brandId, Long productId) {
+        Product product = getProduct(productId);
+        assertProductBelongsToBrand(product, brandId);
         product.delete();
     }
 
@@ -222,6 +250,13 @@ public class CatalogService {
         brandRepository.findById(brandId)
                 .orElseThrow(() -> new IllegalArgumentException("브랜드를 찾을 수 없습니다. brandId=" + brandId));
     }
+
+    private void assertProductBelongsToBrand(Product product, Long brandId) {
+        if (!product.getBrandId().equals(brandId)) {
+            throw new IllegalArgumentException("해당 브랜드의 상품이 아닙니다.");
+        }
+    }
+
 
     private ProductListResponse toProductListResponse(Product product) {
         return ProductListResponse.from(product, getBrandName(product.getBrandId()));

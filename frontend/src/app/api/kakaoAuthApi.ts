@@ -19,13 +19,14 @@ function assertKakaoEnv() {
   }
 }
 
-export function getKakaoLoginUrl() {
+export function getKakaoLoginUrl(): string {
   assertKakaoEnv();
 
-  const params = new URLSearchParams({
+  const params: URLSearchParams = new URLSearchParams({
     client_id: KAKAO_REST_API_KEY,
     redirect_uri: KAKAO_REDIRECT_URI,
     response_type: "code",
+    prompt: "login",
   });
 
   return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
