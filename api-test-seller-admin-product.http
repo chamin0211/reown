@@ -1,0 +1,38 @@
+### 1) 셀러가 상품 등록 - MySQL catalog_product에는 WAITING으로 저장됩니다.
+POST http://localhost:8080/api/seller/products
+Content-Type: application/json
+
+{
+  "brandId": 1,
+  "name": "RE:OWN 테스트 데님 재킷",
+  "thumbnailUrl": "https://picsum.photos/seed/reown-test-denim/600/800",
+  "price": 89000,
+  "categoryName": "아우터",
+  "description": "셀러센터에서 등록한 테스트 상품입니다. 관리자 승인 전에는 사용자 상품 목록에 노출되지 않습니다.",
+  "saleType": "NORMAL",
+  "options": [
+    {
+      "size": "M",
+      "color": "블랙",
+      "colorHex": "#000000",
+      "stockQuantity": 20,
+      "safetyStock": 5,
+      "reservedQuantity": 0
+    }
+  ]
+}
+
+### 2) 셀러가 자기 브랜드 상품 확인
+GET http://localhost:8080/api/seller/products?brandId=1
+
+### 3) 관리자가 승인 대기 상품 조회
+GET http://localhost:8080/api/admin/products?status=WAITING
+
+### 4) 관리자가 상품 상세 검토
+GET http://localhost:8080/api/admin/products/1
+
+### 5) 관리자가 상품 승인
+PATCH http://localhost:8080/api/admin/products/1/approve
+
+### 6) 사용자 상품 목록에서 승인된 상품만 조회
+GET http://localhost:8080/api/products
