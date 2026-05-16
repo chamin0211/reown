@@ -11,6 +11,7 @@ DB 관련 설명
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Header } from '../components/Header';
+import { getLoginUser, type LoginUser } from '../auth/session';
 import {
   cancelFundingParticipation,
   getFunding,
@@ -19,12 +20,6 @@ import {
   type FundingParticipationResponse,
 } from '../api/fundingApi';
 
-interface LoginUser {
-  userId: number;
-  email: string;
-  nickname: string;
-  role: string;
-}
 
 interface ParticipationWithCampaign extends FundingParticipationResponse {
   campaign?: FundingCampaignResponse;
@@ -92,15 +87,14 @@ export function MyFundingPage() {
   };
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('loginUser');
+    const parsedUser = getLoginUser();
 
-    if (!savedUser) {
+    if (!parsedUser) {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
     }
 
-    const parsedUser = JSON.parse(savedUser) as LoginUser;
     setLoginUser(parsedUser);
     loadItems(parsedUser.userId);
   }, [navigate]);

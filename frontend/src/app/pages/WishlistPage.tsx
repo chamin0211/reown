@@ -2,15 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Heart, Trash2 } from 'lucide-react';
 import { Header } from '../components/Header';
+import { getLoginUser } from '../auth/session';
 import { deleteWishlistItem, getWishlistItems } from '../api/wishlistApi';
 import type { WishItemResponse } from '../api/wishlistApi';
 
-interface LoginUser {
-  userId: number;
-  email: string;
-  nickname: string;
-  role: string;
-}
 
 function getProductImageUrl(item: WishItemResponse) {
   if (item.thumbnailUrl && item.thumbnailUrl.startsWith('http')) {
@@ -44,15 +39,13 @@ export function WishlistPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('loginUser');
+    const loginUser = getLoginUser();
 
-    if (!savedUser) {
+    if (!loginUser) {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
     }
-
-    const loginUser = JSON.parse(savedUser) as LoginUser;
 
     getWishlistItems(loginUser.userId)
         .then(setWishlistItems)

@@ -236,6 +236,127 @@ public class TradeService {
                 .toList();
     }
 
+    public List<SellerOrderItemResponse> getSellerOrderItems(Long brandId) {
+        if (brandId == null) {
+            throw new IllegalArgumentException("brandId가 필요합니다.");
+        }
+
+        return orderItemRepository.findAll()
+                .stream()
+                .map(orderItem -> toSellerOrderItemResponse(orderItem, brandId))
+                .filter(response -> response != null)
+                .sorted((left, right) -> right.orderedAt().compareTo(left.orderedAt()))
+                .toList();
+    }
+
+    public SellerOrderSummaryResponse getSellerOrderSummary(Long brandId) {
+        List<SellerOrderItemResponse> items = getSellerOrderItems(brandId);
+
+        long totalOrders = items.stream()
+                .map(SellerOrderItemResponse::orderId)
+                .distinct()
+                .count();
+
+        long paidOrders = items.stream()
+                .filter(item -> "PAID".equals(item.orderStatus()))
+                .map(SellerOrderItemResponse::orderId)
+                .distinct()
+                .count();
+
+        long readyOrders = countOrdersByShippingStatus(items, "READY");
+        long preparingOrders = countOrdersByShippingStatus(items, "PREPARING");
+        long shippedOrders = countOrdersByShippingStatus(items, "SHIPPED");
+        long deliveredOrders = countOrdersByShippingStatus(items, "DELIVERED");
+
+        int totalSalesAmount = items.stream()
+                .filter(item -> "PAID".equals(item.orderStatus()))
+                .mapToInt(SellerOrderItemResponse::itemTotalPrice)
+                .sum();
+
+        int pendingShipmentAmount = items.stream()
+                .filter(item -> "PAID".equals(item.orderStatus()))
+                .filter(item -> !"DELIVERED".equals(item.shippingStatus()))
+                .mapToInt(SellerOrderItemResponse::itemTotalPrice)
+                .sum();
+
+        return new SellerOrderSummaryResponse(
+                totalOrders,
+                paidOrders,
+                readyOrders,
+                preparingOrders,
+                shippedOrders,
+                deliveredOrders,
+                items.size(),
+                totalSalesAmount,
+                pendingShipmentAmount
+        );
+    }
+
+    @Transactional
+    public OrderResponse prepareSellerOrderShipping(Long orderId, Long brandId) {
+        assertOrderContainsBrand(orderId, brandId);
+        return prepareShipping(orderId);
+    }
+
+    @Transactional
+    public OrderResponse shipSellerOrder(Long orderId, Long brandId, String trackingNumber) {
+        assertOrderContainsBrand(orderId, brandId);
+        return shipOrder(orderId, trackingNumber);
+    }
+
+    @Transactional
+    public OrderResponse deliverSellerOrder(Long orderId, Long brandId) {
+        assertOrderContainsBrand(orderId, brandId);
+        return deliverOrder(orderId);
+    }
+
+    private long countOrdersByShippingStatus(List<SellerOrderItemResponse> items, String shippingStatus) {
+        return items.stream()
+                .filter(item -> shippingStatus.equals(item.shippingStatus()))
+                .map(SellerOrderItemResponse::orderId)
+                .distinct()
+                .count();
+    }
+
+    private SellerOrderItemResponse toSellerOrderItemResponse(TradeOrderItem orderItem, Long brandId) {
+        ProductOption option = productOptionRepository.findById(orderItem.getOptionId())
+                .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + orderItem.getOptionId()));
+
+        Product product = productRepository.findById(option.getProductId())
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+        if (!brandId.equals(product.getBrandId())) {
+            return null;
+        }
+
+        TradeOrder order = orderRepository.findById(orderItem.getOrderId())
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderItem.getOrderId()));
+
+        return SellerOrderItemResponse.from(order, orderItem, product, option);
+    }
+
+    private void assertOrderContainsBrand(Long orderId, Long brandId) {
+        if (brandId == null) {
+            throw new IllegalArgumentException("brandId가 필요합니다.");
+        }
+
+        boolean containsBrandItem = orderItemRepository.findByOrderId(orderId)
+                .stream()
+                .anyMatch(orderItem -> {
+                    ProductOption option = productOptionRepository.findById(orderItem.getOptionId())
+                            .orElseThrow(() -> new IllegalArgumentException("상품 옵션을 찾을 수 없습니다. optionId=" + orderItem.getOptionId()));
+
+                    Product product = productRepository.findById(option.getProductId())
+                            .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + option.getProductId()));
+
+                    return brandId.equals(product.getBrandId());
+                });
+
+        if (!containsBrandItem) {
+            throw new IllegalArgumentException("해당 셀러 브랜드의 주문이 아닙니다. orderId=" + orderId + ", brandId=" + brandId);
+        }
+    }
+
     @Transactional
     public PaymentResponse payMock(MockPaymentRequest request) {
         TradeOrder order = getPayableOrder(request.orderId());

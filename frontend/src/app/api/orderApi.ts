@@ -3,6 +3,7 @@ import { api } from './client';
 export interface OrderItemResponse {
     orderItemId: number;
     productId: number;
+    brandId?: number | null;
     productName: string;
     optionId: number;
     size: string;
@@ -62,6 +63,7 @@ export interface PurchasedOrderItemResponse {
     orderId: number;
     orderItemId: number;
     productId: number;
+    brandId?: number | null;
     productName: string;
     thumbnailUrl: string | null;
     optionId: number;
@@ -76,4 +78,74 @@ export interface PurchasedOrderItemResponse {
 
 export function getPurchasedOrderItems(userId: number): Promise<PurchasedOrderItemResponse[]> {
     return api<PurchasedOrderItemResponse[]>(`/api/orders/users/${userId}/items`);
+}
+export interface SellerOrderItemResponse {
+    orderId: number;
+    orderNo: string;
+    userId: number;
+    orderTotalPaymentAmount: number;
+    orderStatus: string;
+    shippingStatus: string;
+    trackingNumber: string | null;
+    shippingAddressSnapshot: string | null;
+    orderedAt: string;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+    orderItemId: number;
+    productId: number;
+    brandId?: number | null;
+    productName: string;
+    thumbnailUrl: string | null;
+    brandId: number;
+    optionId: number;
+    size: string | null;
+    color: string | null;
+    quantity: number;
+    unitPrice: number;
+    itemTotalPrice: number;
+    itemStatus: string;
+}
+
+export interface SellerOrderSummaryResponse {
+    totalOrders: number;
+    paidOrders: number;
+    readyOrders: number;
+    preparingOrders: number;
+    shippedOrders: number;
+    deliveredOrders: number;
+    totalItems: number;
+    totalSalesAmount: number;
+    pendingShipmentAmount: number;
+}
+
+export function getSellerOrders(brandId: number): Promise<SellerOrderItemResponse[]> {
+    return api<SellerOrderItemResponse[]>(`/api/orders/seller?brandId=${brandId}`);
+}
+
+export function getSellerOrderSummary(brandId: number): Promise<SellerOrderSummaryResponse> {
+    return api<SellerOrderSummaryResponse>(`/api/orders/seller/summary?brandId=${brandId}`);
+}
+
+export function prepareSellerOrderShipping(orderId: number, brandId: number): Promise<OrderResponse> {
+    return api<OrderResponse>(`/api/orders/seller/${orderId}/prepare-shipping?brandId=${brandId}`, {
+        method: 'PATCH',
+    });
+}
+
+export function shipSellerOrder(orderId: number, brandId: number, trackingNumber?: string): Promise<OrderResponse> {
+    return api<OrderResponse>(`/api/orders/seller/${orderId}/ship?brandId=${brandId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ trackingNumber: trackingNumber || null }),
+    });
+}
+
+export function deliverSellerOrder(orderId: number, brandId: number): Promise<OrderResponse> {
+    return api<OrderResponse>(`/api/orders/seller/${orderId}/deliver?brandId=${brandId}`, {
+        method: 'PATCH',
+    });
+}
+
+
+export function getAdminOrders(): Promise<OrderResponse[]> {
+    return api<OrderResponse[]>('/api/orders/admin');
 }

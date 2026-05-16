@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Calendar, CheckCircle2, Clock, Minus, Plus, TrendingUp, Users } from 'lucide-react';
 import { Header } from '../components/Header';
+import { getLoginUser } from '../auth/session';
 import { getProduct } from '../api/productApi';
 import type { Product } from '../data/products';
 import {
@@ -27,12 +28,6 @@ import {
   type FundingCampaignResponse,
 } from '../api/fundingApi';
 
-interface LoginUser {
-  userId: number;
-  email: string;
-  nickname: string;
-  role: string;
-}
 
 type FundingOption = NonNullable<Product['options']>[number];
 
@@ -141,8 +136,8 @@ export function FundingDetailPage() {
   const handleParticipate = async () => {
     if (!campaign || !campaignId) return;
 
-    const savedUser = localStorage.getItem('loginUser');
-    if (!savedUser) {
+    const loginUser = getLoginUser();
+    if (!loginUser) {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
@@ -159,7 +154,6 @@ export function FundingDetailPage() {
     }
 
     try {
-      const loginUser = JSON.parse(savedUser) as LoginUser;
       setSubmitting(true);
 
       const result = await participateFunding(campaignId, {

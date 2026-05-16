@@ -1,9 +1,6 @@
 package com.reown.backend.trade.controller;
 
-import com.reown.backend.trade.dto.OrderCreateRequest;
-import com.reown.backend.trade.dto.OrderResponse;
-import com.reown.backend.trade.dto.PurchasedOrderItemResponse;
-import com.reown.backend.trade.dto.ShippingRequest;
+import com.reown.backend.trade.dto.*;
 import com.reown.backend.trade.service.TradeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +48,46 @@ public class OrderController {
             @PathVariable Long orderId
     ) {
         return tradeService.deliverOrder(orderId);
+    }
+
+    @GetMapping("/seller")
+    public List<SellerOrderItemResponse> getSellerOrders(
+            @RequestParam Long brandId
+    ) {
+        return tradeService.getSellerOrderItems(brandId);
+    }
+
+    @GetMapping("/seller/summary")
+    public SellerOrderSummaryResponse getSellerOrderSummary(
+            @RequestParam Long brandId
+    ) {
+        return tradeService.getSellerOrderSummary(brandId);
+    }
+
+    @PatchMapping("/seller/{orderId}/prepare-shipping")
+    public OrderResponse prepareSellerOrderShipping(
+            @PathVariable Long orderId,
+            @RequestParam Long brandId
+    ) {
+        return tradeService.prepareSellerOrderShipping(orderId, brandId);
+    }
+
+    @PatchMapping("/seller/{orderId}/ship")
+    public OrderResponse shipSellerOrder(
+            @PathVariable Long orderId,
+            @RequestParam Long brandId,
+            @RequestBody(required = false) ShippingRequest request
+    ) {
+        String trackingNumber = request != null ? request.trackingNumber() : null;
+        return tradeService.shipSellerOrder(orderId, brandId, trackingNumber);
+    }
+
+    @PatchMapping("/seller/{orderId}/deliver")
+    public OrderResponse deliverSellerOrder(
+            @PathVariable Long orderId,
+            @RequestParam Long brandId
+    ) {
+        return tradeService.deliverSellerOrder(orderId, brandId);
     }
 
     @GetMapping("/{orderId}")

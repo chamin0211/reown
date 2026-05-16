@@ -2,15 +2,10 @@ import { Trash2, Minus, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Header } from '../components/Header';
+import { getLoginUser } from '../auth/session';
 import { deleteCartItem, getCartItems, updateCartItemQuantity } from '../api/cartApi';
 import type { CartItemResponse } from '../api/cartApi';
 
-interface LoginUser {
-  userId: number;
-  email: string;
-  nickname: string;
-  role: string;
-}
 
 function getCartImageUrl(productId: number) {
   return `https://picsum.photos/seed/reown-product-${productId}/600/800`;
@@ -24,15 +19,13 @@ export function CartPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('loginUser');
+    const loginUser = getLoginUser();
 
-    if (!savedUser) {
+    if (!loginUser) {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
     }
-
-    const loginUser = JSON.parse(savedUser) as LoginUser;
 
     getCartItems(loginUser.userId)
         .then((items) => {

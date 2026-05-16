@@ -42,6 +42,9 @@ import { BrandProfile as SellerBrandProfile } from './seller/pages/BrandProfile'
 import { Dashboard as AdminDashboard } from './admin/components/Dashboard';
 import { ProductManagementPage as AdminProductManagementPage } from './admin/components/ProductManagementPage';
 import { ProductReviewDetailPage as AdminProductReviewDetailPage } from './admin/components/ProductReviewDetailPage';
+import { SettlementManagementPage as AdminSettlementManagementPage } from './admin/components/SettlementManagementPage';
+import { SettlementPayoutPage as AdminSettlementPayoutPage } from './admin/components/SettlementPayoutPage';
+import { RevenueAnalyticsPage as AdminRevenueAnalyticsPage } from './admin/components/RevenueAnalyticsPage';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 
 export const router = createBrowserRouter([
@@ -235,6 +238,34 @@ export const router = createBrowserRouter([
     ),
     ErrorBoundary: ErrorPage,
   },
+  {
+    path: '/admin/settlement',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+        <AdminSettlementManagementPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/admin/settlement/payout',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+        <AdminSettlementPayoutPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/admin/settlement/analytics',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+        <AdminRevenueAnalyticsPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
   {
     path: '/admin/product-review/:id',
     element: (

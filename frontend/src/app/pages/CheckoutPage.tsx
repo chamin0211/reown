@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Header } from '../components/Header';
+import { getLoginUser } from '../auth/session';
 import { CreditCard, Smartphone, Building2 } from 'lucide-react';
 import { getCartItems } from '../api/cartApi';
 import type { CartItemResponse } from '../api/cartApi';
 import { createOrder, mockPayment } from '../api/orderApi';
 
-interface LoginUser {
-  userId: number;
-  email: string;
-  nickname: string;
-  role: string;
-}
 
 function getCartImageUrl(productId: number) {
   return `https://picsum.photos/seed/reown-product-${productId}/600/800`;
@@ -36,15 +31,13 @@ export function CheckoutPage() {
   const [pointsToUse, setPointsToUse] = useState(0);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('loginUser');
+    const loginUser = getLoginUser();
 
-    if (!savedUser) {
+    if (!loginUser) {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
     }
-
-    const loginUser = JSON.parse(savedUser) as LoginUser;
 
     getCartItems(loginUser.userId)
         .then((items) => {
@@ -117,9 +110,9 @@ export function CheckoutPage() {
   };
 
   const handlePayment = () => {
-    const savedUser = localStorage.getItem('loginUser');
+    const loginUser = getLoginUser();
 
-    if (!savedUser) {
+    if (!loginUser) {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
@@ -134,8 +127,6 @@ export function CheckoutPage() {
       navigate('/cart');
       return;
     }
-
-    const loginUser = JSON.parse(savedUser) as LoginUser;
 
     const shippingAddressSnapshot = JSON.stringify({
       recipientName: shippingData.name,

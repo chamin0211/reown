@@ -2,15 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, CheckCircle2, CreditCard, Package, Truck } from 'lucide-react';
 import { Header } from '../components/Header';
+import { getLoginUser } from '../auth/session';
 import { getPurchasedOrderItems } from '../api/orderApi';
 import type { PurchasedOrderItemResponse } from '../api/orderApi';
 
-interface LoginUser {
-    userId: number;
-    email: string;
-    nickname: string;
-    role: string;
-}
 
 function getProductImageUrl(item: PurchasedOrderItemResponse) {
     if (item.thumbnailUrl && item.thumbnailUrl.startsWith('http')) {
@@ -49,9 +44,9 @@ export function OrderDetailPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const savedUser = localStorage.getItem('loginUser');
+        const loginUser = getLoginUser();
 
-        if (!savedUser) {
+        if (!loginUser) {
             alert('로그인이 필요합니다.');
             navigate('/login');
             return;
@@ -64,8 +59,6 @@ export function OrderDetailPage() {
             navigate('/my/buying');
             return;
         }
-
-        const loginUser = JSON.parse(savedUser) as LoginUser;
 
         getPurchasedOrderItems(loginUser.userId)
             .then((orderItems) => {

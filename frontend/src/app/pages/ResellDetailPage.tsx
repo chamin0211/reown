@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Gavel, ShieldCheck } from 'lucide-react';
 import { Header } from '../components/Header';
+import { getLoginUser } from '../auth/session';
 import { getResellDetail } from '../api/resellApi';
 import type { ResellResponse } from '../api/resellApi';
 
@@ -62,9 +63,9 @@ export function ResellDetailPage() {
     }, [resellId, navigate]);
 
     const handleOfferSubmit = () => {
-        const savedUser = localStorage.getItem('loginUser');
+        const loginUser = getLoginUser();
 
-        if (!savedUser) {
+        if (!loginUser) {
             alert('로그인이 필요합니다.');
             navigate('/login');
             return;

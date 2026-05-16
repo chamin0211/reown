@@ -7,6 +7,7 @@ import {
 import { useNavigate } from 'react-router';
 import { Heart, Share2, ShoppingCart } from 'lucide-react';
 import { addCartItem } from '../api/cartApi';
+import { getLoginUser } from '../auth/session';
 
 type SaleType = 'FUNDING' | 'REGULAR' | 'RESELL';
 
@@ -55,13 +56,12 @@ export function ProductInfo({
   const [quantity, setQuantity] = useState(1);
   const [wished, setWished] = useState(false);
     useEffect(() => {
-        const savedUser = localStorage.getItem('loginUser');
+        const loginUser = getLoginUser();
 
-        if (!savedUser) {
+        if (!loginUser) {
             return;
         }
 
-        const loginUser = JSON.parse(savedUser);
         const numericProductId = Number(productId);
 
         if (Number.isNaN(numericProductId)) {
@@ -77,15 +77,14 @@ export function ProductInfo({
             });
     }, [productId]);
     const handleToggleWishlist = () => {
-        const savedUser = localStorage.getItem('loginUser');
+        const loginUser = getLoginUser();
 
-        if (!savedUser) {
+        if (!loginUser) {
             alert('로그인이 필요합니다.');
             navigate('/login');
             return;
         }
 
-        const loginUser = JSON.parse(savedUser);
         const numericProductId = Number(productId);
 
         if (Number.isNaN(numericProductId)) {
@@ -121,9 +120,9 @@ export function ProductInfo({
             });
     };
   const handleAddCart = () => {
-    const savedUser = localStorage.getItem('loginUser');
+    const loginUser = getLoginUser();
 
-    if (!savedUser) {
+    if (!loginUser) {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
@@ -133,8 +132,6 @@ export function ProductInfo({
       alert('컬러와 사이즈를 선택해주세요.');
       return;
     }
-
-    const loginUser = JSON.parse(savedUser);
 
     const selectedOption = options.filter((option) => {
       const optionSize = option.size || 'Free';
