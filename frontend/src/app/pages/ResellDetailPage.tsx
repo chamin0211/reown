@@ -5,6 +5,7 @@ import { Header } from '../components/Header';
 import { getLoginUser } from '../auth/session';
 import { getResellDetail, getResellOffers, instantBuyResell, placeResellBid } from '../api/resellApi';
 import type { ResellOfferResponse, ResellResponse } from '../api/resellApi';
+import { subscribeResellRealtime } from '../api/resellRealtime';
 
 function getImageUrl(item: ResellResponse) {
   if (item.thumbnailUrl && item.thumbnailUrl.startsWith('http')) return item.thumbnailUrl;
@@ -55,6 +56,7 @@ export function ResellDetailPage() {
   const [bidPrice, setBidPrice] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
 
   const load = () => {
     if (!Number.isFinite(resellId)) return;
@@ -74,6 +76,34 @@ export function ResellDetailPage() {
   };
 
   useEffect(load, [resellId, navigate]);
+
+  useEffect(() => {
+    if (!Number.isFinite(resellId)) return;
+
+    return subscribeResellRealtime(
+      resellId,
+      (event) => {
+        setItem((prev) => {
+          if (!prev || prev.resellId !== event.resellId) return prev;
+          return {
+            ...prev,
+            currentHighestBid: event.currentHighestBid ?? prev.currentHighestBid,
+            currentHighestBidderId: event.currentHighestBidderId ?? prev.currentHighestBidderId,
+            bidCount: event.bidCount ?? prev.bidCount,
+            status: event.status ?? prev.status,
+            auctionEndAt: event.auctionEndAt ?? prev.auctionEndAt,
+          };
+        });
+
+        if (event.type === 'BID_PLACED') {
+          getResellOffers(resellId)
+            .then(setOffers)
+            .catch((error) => console.error('실시간 입찰 내역 갱신 실패:', error));
+        }
+      },
+      setRealtimeStatus,
+    );
+  }, [resellId]);
 
   const sortedOffers = useMemo(() => [...offers].sort((a, b) => b.offerPrice - a.offerPrice), [offers]);
 
@@ -104,8 +134,8 @@ export function ResellDetailPage() {
     try {
       setSubmitting(true);
       await placeResellBid(item.resellId, { buyerId: loginUser.userId, offerPrice: price });
-      alert('입찰이 등록되었습니다. 현재 최고 입찰가가 갱신됩니다.');
-      load();
+      alert('입찰이 등록되었습니다. 실시간 이벤트로 현재 최고가가 갱신됩니다.');
+      getResellOffers(item.resellId).then(setOffers).catch(() => undefined);
     } catch (error) {
       console.error('입찰 실패:', error);
       alert(error instanceof Error ? error.message : '입찰에 실패했습니다.');
@@ -184,7 +214,14 @@ export function ResellDetailPage() {
               </div>
 
               <h1 className="text-4xl font-semibold mb-3" style={{ color: '#101828' }}>{item.productName}</h1>
-              <p className="text-gray-500 mb-8">{item.color || '-'} / {item.size || '-'} · Premium Bidding Resell</p>
+              <p className="text-gray-500 mb-3">{item.color || '-'} / {item.size || '-'} · Premium Bidding Resell</p>
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm text-gray-600">
+                <span className={`h-2 w-2 rounded-full ${realtimeStatus === 'connected' ? 'bg-green-500' : realtimeStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                {realtimeStatus === 'connected' && '실시간 입찰 연결됨'}
+                {realtimeStatus === 'connecting' && '실시간 입찰 연결 중'}
+                {realtimeStatus === 'disconnected' && '실시간 입찰 연결 종료'}
+                {realtimeStatus === 'error' && '실시간 연결 실패 - 기본 조회로 이용 가능'}
+              </div>
 
               <div className="grid grid-cols-2 gap-4 mb-8">
                 <div className="rounded-2xl border border-gray-200 p-5">

@@ -12,6 +12,7 @@ import com.reown.backend.catalog.entity.ProductOption;
 import com.reown.backend.catalog.repository.ProductOptionRepository;
 import com.reown.backend.catalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,8 @@ public class ResellService {
     private final AssetResellTransactionRepository transactionRepository;
     private final ProductRepository productRepository;
     private final ProductOptionRepository productOptionRepository;
+    private final ResellBidRedisService resellBidRedisService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * 셀러가 프리미엄 입찰형 리셀 상품을 등록합니다.
@@ -149,24 +152,36 @@ public class ResellService {
 
     @Transactional
     public ResellResponse approveResell(Long resellId) {
-        AssetResellMarket resell = findResell(resellId);
+        AssetResellMarket resell = findResellForUpdate(resellId);
         resell.approve();
         productRepository.findById(resell.getProductId()).ifPresent(Product::approve);
+        resellBidRedisService.cacheAuctionState(resell);
+        publishResellEvent(resell.getResellId(), ResellBidEventResponse.statusChanged(
+                resell,
+                "AUCTION_STARTED",
+                "리셀 상품이 승인되어 입찰이 시작되었습니다."
+        ));
         return toResellResponse(resell);
     }
 
     @Transactional
     public ResellResponse rejectResell(Long resellId) {
-        AssetResellMarket resell = findResell(resellId);
+        AssetResellMarket resell = findResellForUpdate(resellId);
         resell.reject();
         productRepository.findById(resell.getProductId()).ifPresent(Product::reject);
         rejectAllBids(resell.getResellId());
+        resellBidRedisService.deleteAuctionState(resell.getResellId());
+        publishResellEvent(resell.getResellId(), ResellBidEventResponse.statusChanged(
+                resell,
+                "AUCTION_REJECTED",
+                "리셀 상품이 반려되었습니다."
+        ));
         return toResellResponse(resell);
     }
 
     @Transactional
     public ResellResponse updateResell(Long resellId, ResellUpdateRequest request) {
-        AssetResellMarket resell = findResell(resellId);
+        AssetResellMarket resell = findResellForUpdate(resellId);
 
         int startPrice = positiveOrThrow(request.startPrice(), "입찰 시작가");
         int instantBuyPrice = positiveOrDefault(request.instantBuyPrice(), startPrice);
@@ -190,18 +205,25 @@ public class ResellService {
                 request.verificationNote(),
                 request.premiumReason()
         );
+        resellBidRedisService.deleteAuctionState(resell.getResellId());
         return toResellResponse(resell);
     }
 
     @Transactional
     public ResellResponse cancelResell(Long resellId, Long sellerId) {
-        AssetResellMarket resell = findResell(resellId);
+        AssetResellMarket resell = findResellForUpdate(resellId);
         if (sellerId != null && resell.getSellerId() != null && !resell.getSellerId().equals(sellerId)) {
             throw new IllegalArgumentException("본인이 등록한 리셀 상품만 취소할 수 있습니다.");
         }
         resell.markCanceled();
         productRepository.findById(resell.getProductId()).ifPresent(Product::delete);
         rejectAllBids(resell.getResellId());
+        resellBidRedisService.deleteAuctionState(resell.getResellId());
+        publishResellEvent(resell.getResellId(), ResellBidEventResponse.statusChanged(
+                resell,
+                "AUCTION_CANCELED",
+                "리셀 상품 입찰이 취소되었습니다."
+        ));
         return toResellResponse(resell);
     }
 
@@ -210,7 +232,11 @@ public class ResellService {
      */
     @Transactional
     public ResellOfferResponse createOffer(Long resellId, ResellOfferCreateRequest request) {
-        AssetResellMarket resell = findResell(resellId);
+        return resellBidRedisService.executeWithAuctionLock(resellId, () -> createOfferWithLock(resellId, request));
+    }
+
+    private ResellOfferResponse createOfferWithLock(Long resellId, ResellOfferCreateRequest request) {
+        AssetResellMarket resell = findResellForUpdate(resellId);
         ensureAuctionOpen(resell);
 
         if (resell.getSellerId() != null && resell.getSellerId().equals(request.buyerId())) {
@@ -234,6 +260,8 @@ public class ResellService {
 
         AssetResellPriceOffer saved = offerRepository.save(offer);
         resell.applyBid(request.offerPrice(), request.buyerId());
+        resellBidRedisService.cacheAuctionState(resell);
+        publishResellEvent(resell.getResellId(), ResellBidEventResponse.bidPlaced(resell, saved));
 
         return ResellOfferResponse.from(saved);
     }
@@ -241,7 +269,7 @@ public class ResellService {
     /** 즉시 구매. 즉시 구매가로 바로 거래 완료 처리합니다. */
     @Transactional
     public ResellTransactionResponse purchaseResell(Long resellId, ResellPurchaseRequest request) {
-        AssetResellMarket resell = findResell(resellId);
+        AssetResellMarket resell = findResellForUpdate(resellId);
         ensureAuctionOpen(resell);
 
         if (resell.getSellerId() != null && resell.getSellerId().equals(request.buyerId())) {
@@ -258,13 +286,20 @@ public class ResellService {
                 buyNowPrice,
                 calculatePlatformFee(buyNowPrice)
         );
-        return ResellTransactionResponse.from(transactionRepository.save(transaction));
+        AssetResellTransaction saved = transactionRepository.save(transaction);
+        resellBidRedisService.deleteAuctionState(resell.getResellId());
+        publishResellEvent(resell.getResellId(), ResellBidEventResponse.statusChanged(
+                resell,
+                "AUCTION_SOLD",
+                "즉시 구매로 거래가 완료되었습니다."
+        ));
+        return ResellTransactionResponse.from(saved);
     }
 
     /** 관리자가 현재 최고 입찰자를 낙찰 처리합니다. */
     @Transactional
     public ResellTransactionResponse closeAuction(Long resellId) {
-        AssetResellMarket resell = findResell(resellId);
+        AssetResellMarket resell = findResellForUpdate(resellId);
         if (!"ON_SALE".equals(resell.getStatus())) {
             throw new IllegalArgumentException("입찰 진행 중인 리셀 상품만 낙찰 처리할 수 있습니다.");
         }
@@ -290,7 +325,14 @@ public class ResellService {
                 leadingOffer.getOfferPrice(),
                 calculatePlatformFee(leadingOffer.getOfferPrice())
         );
-        return ResellTransactionResponse.from(transactionRepository.save(transaction));
+        AssetResellTransaction saved = transactionRepository.save(transaction);
+        resellBidRedisService.deleteAuctionState(resell.getResellId());
+        publishResellEvent(resell.getResellId(), ResellBidEventResponse.statusChanged(
+                resell,
+                "AUCTION_CLOSED",
+                "경매가 마감되어 최고 입찰자가 낙찰되었습니다."
+        ));
+        return ResellTransactionResponse.from(saved);
     }
 
     /** 구버전 엔드포인트 호환용. 판매자 수락 대신 관리자 낙찰과 같은 의미로 처리합니다. */
@@ -399,6 +441,12 @@ public class ResellService {
         }
         if (resell.getAuctionEndAt() != null && !resell.getAuctionEndAt().isAfter(LocalDateTime.now())) {
             resell.markExpired();
+            resellBidRedisService.deleteAuctionState(resell.getResellId());
+            publishResellEvent(resell.getResellId(), ResellBidEventResponse.statusChanged(
+                    resell,
+                    "AUCTION_EXPIRED",
+                    "입찰 시간이 마감되었습니다."
+            ));
             throw new IllegalArgumentException("입찰이 마감된 상품입니다.");
         }
     }
@@ -452,6 +500,16 @@ public class ResellService {
     private AssetResellMarket findResell(Long resellId) {
         return resellMarketRepository.findById(resellId)
                 .orElseThrow(() -> new IllegalArgumentException("리셀 상품을 찾을 수 없습니다. resellId=" + resellId));
+    }
+
+    private AssetResellMarket findResellForUpdate(Long resellId) {
+        return resellMarketRepository.findByIdForUpdate(resellId)
+                .orElseThrow(() -> new IllegalArgumentException("리셀 상품을 찾을 수 없습니다. resellId=" + resellId));
+    }
+
+    private void publishResellEvent(Long resellId, ResellBidEventResponse event) {
+        if (resellId == null || event == null) return;
+        messagingTemplate.convertAndSend("/topic/resells/" + resellId, event);
     }
 
     private void validateProductAndOption(Long productId, Long optionId) {
