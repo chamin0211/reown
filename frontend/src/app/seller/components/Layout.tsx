@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Home, Package, ShoppingBag, Sparkles, DollarSign, Store, Bell, User, LogOut, TrendingUp } from "lucide-react";
+import { Home, Package, ShoppingBag, Sparkles, DollarSign, Store, Bell, User, LogOut, TrendingUp, Gavel } from "lucide-react";
 import { clearLoginUser } from "../../auth/session";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -9,6 +9,7 @@ const navItems = [
   { to: "/seller/products", label: "상품 관리", icon: Package },
   { to: "/seller/orders", label: "주문/출고 관리", icon: ShoppingBag },
   { to: "/seller/funding", label: "펀딩 관리", icon: TrendingUp },
+  { to: "/seller/resell", label: "리셀 관리", icon: Gavel },
   { to: "/seller/limited-editions", label: "디자이너 한정판", icon: Sparkles },
   { to: "/seller/settlement", label: "정산 내역", icon: DollarSign },
   { to: "/seller/profile", label: "브랜드 프로필", icon: Store },

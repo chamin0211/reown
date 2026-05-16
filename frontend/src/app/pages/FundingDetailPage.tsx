@@ -24,8 +24,10 @@ import type { Product } from '../data/products';
 import {
   calculateRemainingDays,
   getFunding,
+  getFundingUpdates,
   participateFunding,
   type FundingCampaignResponse,
+  type FundingUpdateResponse,
 } from '../api/fundingApi';
 
 
@@ -48,6 +50,21 @@ function formatDate(value?: string | null) {
   });
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function getStatusLabel(status?: string) {
   switch (status) {
     case 'OPEN':
@@ -60,6 +77,36 @@ function getStatusLabel(status?: string) {
       return '취소';
     default:
       return status ?? '-';
+  }
+}
+
+function getProductionStageLabel(stage?: string | null, fallback?: string | null) {
+  if (fallback) return fallback;
+
+  switch (stage) {
+    case 'PRODUCTION_READY':
+      return '제작 준비';
+    case 'IN_PRODUCTION':
+      return '제작 중';
+    case 'SHIPPING_PREP':
+      return '배송 준비';
+    case 'SHIPPED':
+      return '배송 완료';
+    default:
+      return '제작 전';
+  }
+}
+
+function getUpdateTypeLabel(type?: string | null, fallback?: string | null) {
+  if (fallback) return fallback;
+
+  switch (type) {
+    case 'PRODUCTION':
+      return '제작 업데이트';
+    case 'SHIPPING':
+      return '배송 업데이트';
+    default:
+      return '공지';
   }
 }
 
@@ -82,6 +129,7 @@ export function FundingDetailPage() {
   const navigate = useNavigate();
   const [campaign, setCampaign] = useState<FundingCampaignResponse | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
+  const [updates, setUpdates] = useState<FundingUpdateResponse[]>([]);
   const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -98,6 +146,14 @@ export function FundingDetailPage() {
         setLoading(true);
         const campaignData = await getFunding(campaignId);
         setCampaign(campaignData);
+
+        try {
+          const updateRows = await getFundingUpdates(campaignId);
+          setUpdates(updateRows);
+        } catch (updateError) {
+          console.error('펀딩 업데이트 조회 실패:', updateError);
+          setUpdates([]);
+        }
 
         try {
           const productData = await getProduct(String(campaignData.productId));
@@ -232,6 +288,68 @@ export function FundingDetailPage() {
                   목표 금액을 달성하면 펀딩은 성공 처리되고 제작 단계로 넘어갑니다. 종료일까지 목표를
                   달성하지 못하면 실패 처리되며, 진행 중인 펀딩만 참여 취소가 가능합니다.
                 </p>
+              </div>
+
+              <div className="rounded-2xl border border-green-100 bg-green-50 p-6">
+                <h2 className="text-lg font-semibold text-green-950 mb-3">제작/배송 단계</h2>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {['PRODUCTION_READY', 'IN_PRODUCTION', 'SHIPPING_PREP', 'SHIPPED'].map((stage) => {
+                    const labels: Record<string, string> = {
+                      PRODUCTION_READY: '제작 준비',
+                      IN_PRODUCTION: '제작 중',
+                      SHIPPING_PREP: '배송 준비',
+                      SHIPPED: '배송 완료',
+                    };
+                    const currentStage = campaign.productionStage || 'NOT_STARTED';
+                    const order = ['PRODUCTION_READY', 'IN_PRODUCTION', 'SHIPPING_PREP', 'SHIPPED'];
+                    const completed = order.indexOf(currentStage) >= order.indexOf(stage);
+                    return (
+                      <div key={stage} className={`rounded-xl border px-4 py-3 ${completed ? 'border-green-300 bg-white text-green-800' : 'border-gray-200 bg-white/70 text-gray-400'}`}>
+                        {labels[stage]}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-sm text-green-800">
+                  현재 단계: <strong>{getProductionStageLabel(campaign.productionStage, campaign.productionStageLabel)}</strong>
+                </p>
+              </div>
+
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-950">공지/제작 업데이트</h2>
+                    <p className="mt-1 text-sm text-gray-500">셀러가 등록한 제작 진행 상황과 안내를 확인할 수 있습니다.</p>
+                  </div>
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">{updates.length}건</span>
+                </div>
+
+                {updates.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                    아직 등록된 공지나 제작 업데이트가 없습니다.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {updates.slice(0, 5).map((update) => (
+                      <div key={update.updateId} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
+                            {getUpdateTypeLabel(update.updateType, update.updateTypeLabel)}
+                          </span>
+                          {update.productionStageLabel && (
+                            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                              {update.productionStageLabel}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400">{formatDateTime(update.createdAt)}</span>
+                        </div>
+                        <p className="font-semibold text-gray-900">{update.title}</p>
+                        <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">{update.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

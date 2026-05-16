@@ -11,6 +11,10 @@ public record ResellTransactionDetailResponse(
         Long transactionId,
         Long resellId,
         Long buyerId,
+        Integer resellPrice,
+        Integer platformFee,
+        String status,
+        LocalDateTime createdAt,
         Long sellerId,
         Long productId,
         String productName,
@@ -18,10 +22,7 @@ public record ResellTransactionDetailResponse(
         Long optionId,
         String size,
         String color,
-        Integer resellPrice,
-        Integer platformFee,
-        String status,
-        LocalDateTime createdAt
+        String rarityGrade
 ) {
     public static ResellTransactionDetailResponse from(
             AssetResellTransaction transaction,
@@ -33,6 +34,10 @@ public record ResellTransactionDetailResponse(
                 transaction.getTransactionId(),
                 transaction.getResellId(),
                 transaction.getBuyerId(),
+                transaction.getResellPrice(),
+                transaction.getPlatformFee(),
+                transaction.getStatus(),
+                transaction.getCreatedAt(),
                 resell.getSellerId(),
                 product.getProductId(),
                 product.getName(),
@@ -40,10 +45,7 @@ public record ResellTransactionDetailResponse(
                 option.getOptionId(),
                 option.getSize(),
                 option.getColor(),
-                transaction.getResellPrice(),
-                transaction.getPlatformFee(),
-                transaction.getStatus(),
-                transaction.getCreatedAt()
+                resell.getRarityGrade()
         );
     }
 }

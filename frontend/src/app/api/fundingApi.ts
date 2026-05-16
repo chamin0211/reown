@@ -28,6 +28,9 @@ export interface FundingCampaignResponse {
   startDate: string | null;
   endDate: string | null;
   fundingStatus: string;
+  productionStage?: string | null;
+  productionStageLabel?: string | null;
+  canUpdateProductionStage?: boolean | null;
   participantCount?: number | null;
   remainingDays?: number | null;
 }
@@ -76,6 +79,26 @@ export interface FundingParticipationResponse {
   unitPrice: number | null;
   amount: number;
   status: string;
+  createdAt: string;
+}
+
+export interface FundingUpdateCreateRequest {
+  updateType?: string | null;
+  title: string;
+  content: string;
+  productionStage?: string | null;
+}
+
+export interface FundingUpdateResponse {
+  updateId: number;
+  campaignId: number;
+  writerId?: number | null;
+  updateType: string;
+  updateTypeLabel?: string | null;
+  title: string;
+  content: string;
+  productionStage?: string | null;
+  productionStageLabel?: string | null;
   createdAt: string;
 }
 
@@ -128,9 +151,9 @@ export function mapFundingToProduct(campaign: FundingCampaignResponse): Product 
     remainingDays: calculateRemainingDays(campaign.endDate),
     productionStages: [
       { stage: 'funding_open', label: '펀딩 오픈', completed: campaign.fundingStatus === 'OPEN' || campaign.fundingStatus === 'SUCCESS' },
-      { stage: 'target_progress', label: '목표 금액 달성 중', completed: campaign.progressRate > 0 },
-      { stage: 'production', label: '생산 준비', completed: campaign.fundingStatus === 'SUCCESS' },
-      { stage: 'shipping_prep', label: '배송 준비', completed: false },
+      { stage: 'target_progress', label: '목표 금액 달성', completed: campaign.fundingStatus === 'SUCCESS' || campaign.progressRate >= 100 },
+      { stage: 'production', label: campaign.productionStageLabel || '제작 준비', completed: campaign.fundingStatus === 'SUCCESS' },
+      { stage: 'shipping_prep', label: '배송 준비/완료', completed: campaign.productionStage === 'SHIPPING_PREP' || campaign.productionStage === 'SHIPPED' },
     ],
   };
 }
@@ -164,6 +187,30 @@ export async function approveFunding(campaignId: string | number): Promise<Fundi
 
 export async function rejectFunding(campaignId: string | number): Promise<FundingCampaignResponse> {
   return api<FundingCampaignResponse>(`/api/fundings/admin/${campaignId}/reject`, { method: 'PATCH' });
+}
+
+export async function updateSellerFundingProductionStage(
+  campaignId: string | number,
+  brandId: string | number,
+  productionStage: string
+): Promise<FundingCampaignResponse> {
+  return api<FundingCampaignResponse>(
+    `/api/fundings/seller/${campaignId}/production-stage?brandId=${encodeURIComponent(String(brandId))}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ productionStage }),
+    }
+  );
+}
+
+export async function updateAdminFundingProductionStage(
+  campaignId: string | number,
+  productionStage: string
+): Promise<FundingCampaignResponse> {
+  return api<FundingCampaignResponse>(`/api/fundings/admin/${campaignId}/production-stage`, {
+    method: 'PATCH',
+    body: JSON.stringify({ productionStage }),
+  });
 }
 
 export async function getFundings(status?: string): Promise<FundingCampaignResponse[]> {
@@ -204,4 +251,30 @@ export async function getFundingParticipationsByUser(
   userId: string | number
 ): Promise<FundingParticipationResponse[]> {
   return api<FundingParticipationResponse[]>(`/api/fundings/users/${userId}/participations`);
+}
+
+export async function getFundingParticipationsByCampaign(
+  campaignId: string | number
+): Promise<FundingParticipationResponse[]> {
+  return api<FundingParticipationResponse[]>(`/api/fundings/${campaignId}/participations`);
+}
+
+export async function getFundingUpdates(
+  campaignId: string | number
+): Promise<FundingUpdateResponse[]> {
+  return api<FundingUpdateResponse[]>(`/api/fundings/${campaignId}/updates`);
+}
+
+export async function createSellerFundingUpdate(
+  campaignId: string | number,
+  brandId: string | number,
+  request: FundingUpdateCreateRequest
+): Promise<FundingUpdateResponse> {
+  return api<FundingUpdateResponse>(
+    `/api/fundings/seller/${campaignId}/updates?brandId=${encodeURIComponent(String(brandId))}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  );
 }

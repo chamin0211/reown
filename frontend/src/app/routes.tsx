@@ -25,6 +25,7 @@ import { MyFundingPage } from './pages/MyFundingPage';
 import { ErrorPage } from './pages/ErrorPage';
 import { ResellMarketPage } from './pages/ResellMarketPage';
 import { ResellDetailPage } from './pages/ResellDetailPage';
+import { ResellRegisterPage } from './pages/ResellRegisterPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { KakaoCallbackPage } from './pages/KakaoCallbackPage';
 
@@ -41,6 +42,7 @@ import { Settlement as SellerSettlement } from './seller/pages/Settlement';
 import { BrandProfile as SellerBrandProfile } from './seller/pages/BrandProfile';
 import { FundingCampaign as SellerFundingCampaign } from './seller/pages/FundingCampaign';
 import { FundingProjectForm as SellerFundingProjectForm } from './seller/pages/FundingProjectForm';
+import { ResellManagement as SellerResellManagement } from './seller/pages/ResellManagement';
 import { Dashboard as AdminDashboard } from './admin/components/Dashboard';
 import { ProductManagementPage as AdminProductManagementPage } from './admin/components/ProductManagementPage';
 import { ProductReviewDetailPage as AdminProductReviewDetailPage } from './admin/components/ProductReviewDetailPage';
@@ -48,6 +50,7 @@ import { SettlementManagementPage as AdminSettlementManagementPage } from './adm
 import { SettlementPayoutPage as AdminSettlementPayoutPage } from './admin/components/SettlementPayoutPage';
 import { RevenueAnalyticsPage as AdminRevenueAnalyticsPage } from './admin/components/RevenueAnalyticsPage';
 import { FundingManagementPage as AdminFundingManagementPage } from './admin/components/FundingManagementPage';
+import { ResellInspectionQueuePage as AdminResellInspectionQueuePage } from './admin/components/ResellInspectionQueuePage';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 
 export const router = createBrowserRouter([
@@ -172,6 +175,11 @@ export const router = createBrowserRouter([
     ErrorBoundary: ErrorPage,
   },
   {
+    path: '/resell/new',
+    Component: ResellRegisterPage,
+    ErrorBoundary: ErrorPage,
+  },
+  {
     path: '/resell/:resellId',
     Component: ResellDetailPage,
     ErrorBoundary: ErrorPage,
@@ -222,6 +230,7 @@ export const router = createBrowserRouter([
       { path: 'settlement', Component: SellerSettlement },
       { path: 'funding', Component: SellerFundingCampaign },
       { path: 'funding/new', Component: SellerFundingProjectForm },
+      { path: 'resell', Component: SellerResellManagement },
       { path: 'profile', Component: SellerBrandProfile },
     ],
   },
@@ -248,6 +257,16 @@ export const router = createBrowserRouter([
     element: (
       <RoleProtectedRoute allowedRoles={['ADMIN']}>
         <AdminFundingManagementPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
+    path: '/admin/resell',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+        <AdminResellInspectionQueuePage />
       </RoleProtectedRoute>
     ),
     ErrorBoundary: ErrorPage,

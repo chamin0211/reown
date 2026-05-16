@@ -1,18 +1,36 @@
 package com.reown.backend.asset.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
+import java.time.LocalDateTime;
+
 public record ResellUpdateRequest(
-        @NotNull(message = "판매자 ID는 필수입니다.")
         Long sellerId,
 
-        @NotNull(message = "리셀 가격은 필수입니다.")
-        @Positive(message = "리셀 가격은 0보다 커야 합니다.")
-        Integer resellPrice,
+        @NotNull
+        @Positive
+        Integer startPrice,
 
-        @NotBlank(message = "상품 상태 설명은 필수입니다.")
-        String conditionDescription
+        @NotNull
+        @Positive
+        Integer instantBuyPrice,
+
+        @Positive
+        Integer minBidIncrement,
+
+        @NotNull
+        LocalDateTime auctionEndAt,
+
+        String rarityGrade,
+
+        String conditionDescription,
+
+        String verificationNote,
+
+        String premiumReason,
+
+        /** 구버전 호환용 */
+        Integer resellPrice
 ) {
 }

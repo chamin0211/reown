@@ -24,6 +24,9 @@ public record FundingCampaignResponse(
         LocalDateTime startDate,
         LocalDateTime endDate,
         String fundingStatus,
+        String productionStage,
+        String productionStageLabel,
+        Boolean canUpdateProductionStage,
         Long participantCount,
         Long remainingDays
 ) {
@@ -52,6 +55,7 @@ public record FundingCampaignResponse(
         Integer targetAmount = campaign.getTargetAmount() != null ? campaign.getTargetAmount() : 0;
         Integer remainingAmount = Math.max(targetAmount - currentAmount, 0);
         Double progressRate = calculateProgressRate(currentAmount, targetAmount);
+        String productionStage = campaign.getProductionStageValue();
 
         return new FundingCampaignResponse(
                 campaign.getCampaignId(),
@@ -71,6 +75,9 @@ public record FundingCampaignResponse(
                 campaign.getStartDate(),
                 campaign.getEndDate(),
                 campaign.getFundingStatus(),
+                productionStage,
+                productionStageLabel(productionStage),
+                TradeFundingCampaign.STATUS_SUCCESS.equals(campaign.getFundingStatus()),
                 participantCount != null ? participantCount : 0L,
                 calculateRemainingDays(campaign.getEndDate())
         );
@@ -96,5 +103,19 @@ public record FundingCampaignResponse(
         }
 
         return Math.max(0L, ChronoUnit.DAYS.between(now.toLocalDate(), endDate.toLocalDate()));
+    }
+
+    private static String productionStageLabel(String stage) {
+        if (stage == null) {
+            return "제작 전";
+        }
+
+        return switch (stage) {
+            case TradeFundingCampaign.STAGE_PRODUCTION_READY -> "제작 준비";
+            case TradeFundingCampaign.STAGE_IN_PRODUCTION -> "제작 중";
+            case TradeFundingCampaign.STAGE_SHIPPING_PREP -> "배송 준비";
+            case TradeFundingCampaign.STAGE_SHIPPED -> "배송 완료";
+            default -> "제작 전";
+        };
     }
 }

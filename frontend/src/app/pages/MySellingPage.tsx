@@ -1,278 +1,107 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
 import { Header } from '../components/Header';
-import { TrendingUp, Clock } from 'lucide-react';
-import { allProducts } from '../data/products';
+import { getLoginUser } from '../auth/session';
+import { getSellerResells, getSellerResellTransactions } from '../api/resellApi';
+import type { ResellResponse, ResellTransactionDetailResponse } from '../api/resellApi';
+import { Package, ShieldCheck } from 'lucide-react';
 
-type SaleStatus = 'all' | 'pending' | 'sold' | 'settled';
+function formatPrice(value?: number | null) {
+  return `₩${Number(value ?? 0).toLocaleString()}`;
+}
 
-interface SaleItem {
-  saleId: string;
-  product: typeof allProducts[0];
-  saleDate: string;
-  settlementDate?: string;
-  finalPrice: number;
-  status: 'pending' | 'sold' | 'settled';
+function getImageUrl(item: { thumbnailUrl: string | null; productId: number }) {
+  if (item.thumbnailUrl && item.thumbnailUrl.startsWith('http')) return item.thumbnailUrl;
+  return `https://picsum.photos/seed/reown-selling-${item.productId}/300/400`;
+}
+
+function getStatusLabel(status: string) {
+  switch (status) {
+    case 'WAITING': return '검수 대기';
+    case 'ON_SALE': return '입찰 진행중';
+    case 'SOLD': return '거래 완료';
+    case 'REJECTED': return '반려';
+    case 'CANCELED': return '취소';
+    case 'EXPIRED': return '마감';
+    default: return status;
+  }
 }
 
 export function MySellingPage() {
-  const [activeTab, setActiveTab] = useState<SaleStatus>('all');
+  const navigate = useNavigate();
+  const [items, setItems] = useState<ResellResponse[]>([]);
+  const [transactions, setTransactions] = useState<ResellTransactionDetailResponse[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample sale data
-  const sales: SaleItem[] = [
-    {
-      saleId: 'SALE-2024-001',
-      product: allProducts[3],
-      saleDate: '2024-04-28',
-      settlementDate: '2024-05-05',
-      finalPrice: 920000,
-      status: 'settled',
-    },
-    {
-      saleId: 'SALE-2024-002',
-      product: allProducts[4],
-      saleDate: '2024-05-02',
-      finalPrice: 750000,
-      status: 'sold',
-    },
-    {
-      saleId: 'SALE-2024-003',
-      product: allProducts[5],
-      saleDate: '2024-05-04',
-      finalPrice: 1100000,
-      status: 'pending',
-    },
-  ];
+  useEffect(() => {
+    const loginUser = getLoginUser();
+    if (!loginUser) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
 
-  const filteredSales = sales.filter(sale =>
-    activeTab === 'all' ? true : sale.status === activeTab
-  );
-
-  // Calculate summary
-  const totalSoldAmount = sales
-    .filter(s => s.status === 'settled')
-    .reduce((sum, s) => sum + s.finalPrice, 0);
-
-  const pendingSettlement = sales
-    .filter(s => s.status === 'sold')
-    .reduce((sum, s) => sum + s.finalPrice, 0);
-
-  const tabs = [
-    { value: 'all' as SaleStatus, label: 'All' },
-    { value: 'pending' as SaleStatus, label: 'Pending Inspection' },
-    { value: 'sold' as SaleStatus, label: 'Sold' },
-    { value: 'settled' as SaleStatus, label: 'Settlement Completed' },
-  ];
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: {
-        label: 'Inspection in Progress',
-        bgColor: '#fef3c7',
-        borderColor: '#fde047',
-        textColor: '#ca8a04',
-      },
-      sold: {
-        label: 'Sold - Pending Settlement',
-        bgColor: '#dbeafe',
-        borderColor: '#93c5fd',
-        textColor: '#1e40af',
-      },
-      settled: {
-        label: 'Settlement Done',
-        bgColor: '#f0fdf4',
-        borderColor: '#86efac',
-        textColor: '#16a34a',
-      },
-    };
-    return statusConfig[status as keyof typeof statusConfig];
-  };
+    Promise.all([getSellerResells(loginUser.userId), getSellerResellTransactions(loginUser.userId)])
+      .then(([resells, tx]) => {
+        setItems(resells);
+        setTransactions(tx);
+      })
+      .catch((error) => {
+        console.error('판매 리셀 조회 실패:', error);
+        alert('판매 리셀 내역을 불러오지 못했습니다.');
+      })
+      .finally(() => setLoading(false));
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
-
-      <div className="pt-24 pb-20">
-        <div className="max-w-[1200px] mx-auto px-12">
-          {/* Page Title */}
-          <h1 className="text-4xl font-light tracking-wider mb-12" style={{ color: '#101828' }}>
-            Selling History
-          </h1>
-
-          {/* Summary Dashboard */}
-          <div className="grid grid-cols-2 gap-8 mb-12">
-            {/* Total Sold Amount */}
-            <div className="p-8" style={{ border: '0.5px solid #e5e7eb' }}>
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <p className="text-sm font-light text-gray-500 mb-2 uppercase tracking-wider">
-                    Total Sold Amount
-                  </p>
-                  <p className="text-3xl font-light" style={{ color: '#101828' }}>
-                    ₩{totalSoldAmount.toLocaleString()}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#f0fdf4' }}>
-                  <TrendingUp className="w-6 h-6" style={{ color: '#16a34a' }} />
-                </div>
-              </div>
-              <p className="text-xs font-light text-gray-500">
-                Total earnings from completed settlements
-              </p>
-            </div>
-
-            {/* Pending Settlement */}
-            <div className="p-8" style={{ border: '0.5px solid #e5e7eb' }}>
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <p className="text-sm font-light text-gray-500 mb-2 uppercase tracking-wider">
-                    Pending Settlement
-                  </p>
-                  <p className="text-3xl font-light" style={{ color: '#101828' }}>
-                    ₩{pendingSettlement.toLocaleString()}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#dbeafe' }}>
-                  <Clock className="w-6 h-6" style={{ color: '#1e40af' }} />
-                </div>
-              </div>
-              <p className="text-xs font-light text-gray-500">
-                Awaiting settlement processing
-              </p>
-            </div>
+      <main className="pt-24 pb-20">
+        <div className="max-w-[1100px] mx-auto px-8">
+          <div className="mb-10">
+            <p className="text-sm text-gray-500 uppercase tracking-widest mb-2">MY ARCHIVE SALES</p>
+            <h1 className="text-4xl font-semibold mb-3" style={{ color: '#101828' }}>프리미엄 리셀 판매 내역</h1>
+            <p className="text-gray-500">입찰형 프리미엄 리셀은 일반 상품 중고 판매가 아니라 관리자 검수 상품 중심으로 운영됩니다.</p>
           </div>
 
-          {/* Status Tabs */}
-          <div className="mb-12">
-            <div className="flex gap-2" style={{ borderBottom: '0.5px solid #e5e7eb' }}>
-              {tabs.map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => setActiveTab(tab.value)}
-                  className="px-6 pb-4 text-sm font-light tracking-wide transition-colors relative"
-                  style={{
-                    color: activeTab === tab.value ? '#101828' : '#9ca3af',
-                  }}
-                >
-                  {tab.label}
-                  {activeTab === tab.value && (
-                    <div
-                      className="absolute bottom-0 left-0 right-0"
-                      style={{ height: '2px', backgroundColor: '#101828' }}
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="rounded-2xl border border-gray-100 p-5"><p className="text-sm text-gray-500 mb-2">등록 상품</p><p className="text-3xl font-bold">{items.length}건</p></div>
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5"><p className="text-sm text-blue-700 mb-2">입찰 진행</p><p className="text-3xl font-bold text-blue-900">{items.filter((i) => i.status === 'ON_SALE').length}건</p></div>
+            <div className="rounded-2xl border border-green-100 bg-green-50 p-5"><p className="text-sm text-green-700 mb-2">거래 완료</p><p className="text-3xl font-bold text-green-900">{transactions.length}건</p></div>
           </div>
 
-          {/* Sale Items - Table-like Structure */}
-          {filteredSales.length === 0 ? (
-            <div className="text-center py-20">
-              <TrendingUp className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-xl font-light mb-2" style={{ color: '#101828' }}>
-                No sales found
-              </h3>
-              <p className="text-gray-500 font-light">
-                You haven't sold any items yet
-              </p>
+          {loading ? (
+            <div className="text-center py-20 text-gray-500">판매 내역을 불러오는 중입니다...</div>
+          ) : items.length === 0 ? (
+            <div className="text-center py-20 border border-gray-200 rounded-2xl">
+              <Package className="w-14 h-14 mx-auto mb-4 text-gray-300" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">등록된 프리미엄 리셀 판매 내역이 없습니다</h2>
+              <p className="text-gray-500">일반 구매 상품 리셀 등록은 MVP에서 제외했고, 관리자 검수 기반 입찰형 구조로 운영됩니다.</p>
             </div>
           ) : (
-            <div>
-              {/* Table Header */}
-              <div className="grid grid-cols-12 gap-6 px-8 py-4 mb-4" style={{ borderBottom: '0.5px solid #e5e7eb' }}>
-                <div className="col-span-5">
-                  <p className="text-xs font-light text-gray-500 uppercase tracking-wider">
-                    Product
-                  </p>
-                </div>
-                <div className="col-span-3">
-                  <p className="text-xs font-light text-gray-500 uppercase tracking-wider">
-                    Status
-                  </p>
-                </div>
-                <div className="col-span-2 text-right">
-                  <p className="text-xs font-light text-gray-500 uppercase tracking-wider">
-                    Final Price
-                  </p>
-                </div>
-                <div className="col-span-2 text-right">
-                  <p className="text-xs font-light text-gray-500 uppercase tracking-wider">
-                    Settlement Date
-                  </p>
-                </div>
-              </div>
-
-              {/* Table Rows */}
-              <div className="space-y-4">
-                {filteredSales.map((sale) => {
-                  const statusBadge = getStatusBadge(sale.status);
-                  return (
-                    <div
-                      key={sale.saleId}
-                      className="grid grid-cols-12 gap-6 items-center px-8 py-6 hover:bg-gray-50 transition-colors"
-                      style={{ border: '0.5px solid #e5e7eb' }}
-                    >
-                      {/* Product */}
-                      <div className="col-span-5 flex items-center gap-4">
-                        <div className="flex-shrink-0 w-20 h-24 bg-gray-50 overflow-hidden">
-                          <img
-                            src={sale.product.ogImageUrl}
-                            alt={sale.product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs text-gray-500 uppercase tracking-widest font-light mb-1 truncate">
-                            {sale.product.brandName}
-                          </p>
-                          <h3 className="text-sm font-light mb-1 truncate" style={{ color: '#101828' }}>
-                            {sale.product.name}
-                          </h3>
-                          <p className="text-xs text-gray-500 font-light">
-                            Sale ID: {sale.saleId}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Status Badge */}
-                      <div className="col-span-3">
-                        <div
-                          className="inline-flex items-center gap-2 px-3 py-2"
-                          style={{
-                            backgroundColor: statusBadge.bgColor,
-                            border: `0.5px solid ${statusBadge.borderColor}`,
-                          }}
-                        >
-                          <span
-                            className="text-sm font-light"
-                            style={{ color: statusBadge.textColor }}
-                          >
-                            {statusBadge.label}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Final Price */}
-                      <div className="col-span-2 text-right">
-                        <p className="text-base font-light" style={{ color: '#101828' }}>
-                          ₩{sale.finalPrice.toLocaleString()}
-                        </p>
-                      </div>
-
-                      {/* Settlement Date */}
-                      <div className="col-span-2 text-right">
-                        <p className="text-sm font-light" style={{ color: '#101828' }}>
-                          {sale.settlementDate || '—'}
-                        </p>
+            <div className="space-y-4">
+              {items.map((item) => (
+                <Link to={`/resell/${item.resellId}`} key={item.resellId} className="block rounded-2xl border border-gray-200 p-5 hover:bg-gray-50">
+                  <div className="flex gap-5">
+                    <img src={getImageUrl(item)} alt={item.productName} className="w-24 h-28 object-cover rounded-xl bg-gray-100" />
+                    <div className="flex-1">
+                      <div className="flex gap-2 mb-2"><span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold"><ShieldCheck className="w-3 h-3" /> {item.rarityGrade || 'ARCHIVE'}</span><span className="px-3 py-1 rounded-full bg-gray-50 text-gray-700 border border-gray-200 text-xs font-semibold">{getStatusLabel(item.status)}</span></div>
+                      <h3 className="font-semibold text-gray-900 mb-1">{item.productName}</h3>
+                      <p className="text-sm text-gray-500 mb-3">{item.color || '-'} / {item.size || '-'}</p>
+                      <div className="grid grid-cols-4 gap-4 text-sm">
+                        <div><p className="text-gray-500">시작가</p><p className="font-bold">{formatPrice(item.startPrice)}</p></div>
+                        <div><p className="text-gray-500">현재 최고가</p><p className="font-bold text-blue-800">{formatPrice(item.currentHighestBid || item.startPrice)}</p></div>
+                        <div><p className="text-gray-500">즉시 구매가</p><p className="font-bold">{formatPrice(item.instantBuyPrice)}</p></div>
+                        <div><p className="text-gray-500">입찰 수</p><p className="font-bold">{item.bidCount ?? 0}건</p></div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

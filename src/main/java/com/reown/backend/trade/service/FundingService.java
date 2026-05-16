@@ -23,10 +23,14 @@ import com.reown.backend.trade.dto.FundingParticipateRequest;
 import com.reown.backend.trade.dto.FundingParticipateResponse;
 import com.reown.backend.trade.dto.FundingParticipationResponse;
 import com.reown.backend.trade.dto.FundingProductCreateRequest;
+import com.reown.backend.trade.dto.FundingUpdateCreateRequest;
+import com.reown.backend.trade.dto.FundingUpdateResponse;
 import com.reown.backend.trade.entity.TradeFundingCampaign;
 import com.reown.backend.trade.entity.TradeFundingParticipation;
+import com.reown.backend.trade.entity.TradeFundingUpdate;
 import com.reown.backend.trade.repository.TradeFundingCampaignRepository;
 import com.reown.backend.trade.repository.TradeFundingParticipationRepository;
+import com.reown.backend.trade.repository.TradeFundingUpdateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +56,7 @@ public class FundingService {
 
     private final TradeFundingCampaignRepository fundingCampaignRepository;
     private final TradeFundingParticipationRepository participationRepository;
+    private final TradeFundingUpdateRepository fundingUpdateRepository;
     private final ProductRepository productRepository;
     private final ProductOptionRepository productOptionRepository;
     private final BrandRepository brandRepository;
@@ -294,6 +299,75 @@ public class FundingService {
     }
 
     @Transactional
+    public FundingCampaignResponse updateProductionStageBySeller(Long campaignId, Long brandId, String productionStage) {
+        TradeFundingCampaign campaign = getCampaign(campaignId);
+        Product product = getProduct(campaign.getProductId());
+
+        validateFundingProduct(product);
+        if (!product.getBrandId().equals(brandId)) {
+            throw new IllegalArgumentException("본인 브랜드의 펀딩만 제작 단계를 변경할 수 있습니다.");
+        }
+
+        campaign.refreshLifecycleStatus(LocalDateTime.now());
+        campaign.updateProductionStage(productionStage);
+
+        return toResponse(campaign);
+    }
+
+    @Transactional
+    public FundingCampaignResponse updateProductionStageByAdmin(Long campaignId, String productionStage) {
+        TradeFundingCampaign campaign = getCampaign(campaignId);
+        Product product = getProduct(campaign.getProductId());
+
+        validateFundingProduct(product);
+        campaign.refreshLifecycleStatus(LocalDateTime.now());
+        campaign.updateProductionStage(productionStage);
+
+        return toResponse(campaign);
+    }
+
+
+    public List<FundingUpdateResponse> getFundingUpdates(Long campaignId) {
+        TradeFundingCampaign campaign = getCampaign(campaignId);
+        campaign.refreshLifecycleStatus(LocalDateTime.now());
+
+        return fundingUpdateRepository.findByCampaignIdOrderByCreatedAtDesc(campaignId)
+                .stream()
+                .map(FundingUpdateResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public FundingUpdateResponse createSellerFundingUpdate(Long campaignId, Long brandId, FundingUpdateCreateRequest request) {
+        TradeFundingCampaign campaign = getCampaign(campaignId);
+        Product product = getProduct(campaign.getProductId());
+
+        validateFundingProduct(product);
+        if (!product.getBrandId().equals(brandId)) {
+            throw new IllegalArgumentException("본인 브랜드의 펀딩에만 공지를 등록할 수 있습니다.");
+        }
+
+        if (PRODUCT_STATUS_DELETED.equals(product.getStatus())
+                || TradeFundingCampaign.STATUS_CANCELED.equals(campaign.getFundingStatus())
+                || TradeFundingCampaign.STATUS_REJECTED.equals(campaign.getFundingStatus())) {
+            throw new IllegalArgumentException("취소/반려/삭제된 펀딩에는 공지를 등록할 수 없습니다.");
+        }
+
+        campaign.refreshLifecycleStatus(LocalDateTime.now());
+
+        TradeFundingUpdate update = new TradeFundingUpdate(
+                campaignId,
+                brandId,
+                request.updateType(),
+                request.title(),
+                request.content(),
+                normalizeUpdateStage(request.productionStage(), campaign)
+        );
+
+        return FundingUpdateResponse.from(fundingUpdateRepository.save(update));
+    }
+
+    @Transactional
     public List<FundingParticipationResponse> getParticipationsByCampaign(Long campaignId) {
         TradeFundingCampaign campaign = getCampaign(campaignId);
         campaign.refreshLifecycleStatus(LocalDateTime.now());
@@ -421,6 +495,19 @@ public class FundingService {
         }
 
         return option.getOptionId();
+    }
+
+
+    private String normalizeUpdateStage(String requestedStage, TradeFundingCampaign campaign) {
+        if (requestedStage != null && !requestedStage.isBlank()) {
+            return requestedStage.trim();
+        }
+
+        String currentStage = campaign.getProductionStageValue();
+        if (currentStage == null || TradeFundingCampaign.STAGE_NOT_STARTED.equals(currentStage)) {
+            return null;
+        }
+        return currentStage;
     }
 
     private String normalizeText(String value, String fallback) {

@@ -16,8 +16,10 @@ import {
   cancelFundingParticipation,
   getFunding,
   getFundingParticipationsByUser,
+  getFundingUpdates,
   type FundingCampaignResponse,
   type FundingParticipationResponse,
+  type FundingUpdateResponse,
 } from '../api/fundingApi';
 
 interface LoginUser {
@@ -29,6 +31,7 @@ interface LoginUser {
 
 interface ParticipationWithCampaign extends FundingParticipationResponse {
   campaign?: FundingCampaignResponse;
+  updates?: FundingUpdateResponse[];
 }
 
 function formatCurrency(value?: number | null) {
@@ -76,6 +79,36 @@ function getFundingStatusLabel(status?: string) {
   }
 }
 
+function getProductionStageLabel(stage?: string | null, fallback?: string | null) {
+  if (fallback) return fallback;
+
+  switch (stage) {
+    case 'PRODUCTION_READY':
+      return '제작 준비';
+    case 'IN_PRODUCTION':
+      return '제작 중';
+    case 'SHIPPING_PREP':
+      return '배송 준비';
+    case 'SHIPPED':
+      return '배송 완료';
+    default:
+      return '제작 전';
+  }
+}
+
+function getUpdateTypeLabel(type?: string | null, fallback?: string | null) {
+  if (fallback) return fallback;
+
+  switch (type) {
+    case 'PRODUCTION':
+      return '제작 업데이트';
+    case 'SHIPPING':
+      return '배송 업데이트';
+    default:
+      return '공지';
+  }
+}
+
 export function MyFundingPage() {
   const navigate = useNavigate();
   const [loginUser, setLoginUser] = useState<LoginUser | null>(null);
@@ -92,7 +125,11 @@ export function MyFundingPage() {
         participations.map(async (participation) => {
           try {
             const campaign = await getFunding(participation.campaignId);
-            return { ...participation, campaign };
+            const updates = await getFundingUpdates(participation.campaignId).catch((error) => {
+              console.error('펀딩 업데이트 조회 실패:', error);
+              return [];
+            });
+            return { ...participation, campaign, updates };
           } catch (error) {
             console.error('펀딩 캠페인 조회 실패:', error);
             return participation;
@@ -193,7 +230,7 @@ export function MyFundingPage() {
                       </span>
                     </div>
 
-                    <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-5">
+                    <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-6">
                       <div>
                         <p className="text-sm text-gray-500 mb-1">내 참여 금액</p>
                         <p className="font-semibold text-gray-900">{formatCurrency(item.amount)}</p>
@@ -213,6 +250,10 @@ export function MyFundingPage() {
                       <div>
                         <p className="text-sm text-gray-500 mb-1">펀딩 상태</p>
                         <p className="font-semibold text-blue-900">{getFundingStatusLabel(campaign?.fundingStatus)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">제작/배송 단계</p>
+                        <p className="font-semibold text-gray-900">{getProductionStageLabel(campaign?.productionStage, campaign?.productionStageLabel)}</p>
                       </div>
                     </div>
 
@@ -237,6 +278,43 @@ export function MyFundingPage() {
                       <div className="mt-5">
                         <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
                           <div className="h-full rounded-full bg-blue-900" style={{ width: `${progressRate}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {campaign?.fundingStatus === 'SUCCESS' && (
+                      <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                        펀딩이 성공했습니다. 현재 제작/배송 단계는 <strong>{getProductionStageLabel(campaign.productionStage, campaign.productionStageLabel)}</strong>입니다.
+                      </div>
+                    )}
+
+                    {campaign?.fundingStatus === 'FAILED' && (
+                      <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                        목표 금액 미달로 펀딩이 실패 처리되었습니다. 실제 결제 연동 전 단계이므로 결제 예정 금액은 청구되지 않는 것으로 안내합니다.
+                      </div>
+                    )}
+
+
+                    {item.updates && item.updates.length > 0 && (
+                      <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <p className="text-sm font-semibold text-blue-950">최근 공지/제작 업데이트</p>
+                          <span className="text-xs text-blue-700">총 {item.updates.length}건</span>
+                        </div>
+                        <div className="space-y-3">
+                          {item.updates.slice(0, 2).map((update) => (
+                            <div key={update.updateId} className="rounded-lg bg-white p-3 text-sm">
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                                  {getUpdateTypeLabel(update.updateType, update.updateTypeLabel)}
+                                </span>
+                                {update.productionStageLabel && <span className="text-xs text-green-700">{update.productionStageLabel}</span>}
+                                <span className="text-xs text-gray-400">{formatDate(update.createdAt)}</span>
+                              </div>
+                              <p className="font-semibold text-gray-900">{update.title}</p>
+                              <p className="mt-1 line-clamp-2 text-gray-600">{update.content}</p>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

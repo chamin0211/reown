@@ -78,7 +78,7 @@ const menuItems: MenuItem[] = [
   { 
     icon: <CheckSquare size={20} />, 
     label: '리셀 검수', 
-    path: '/admin/resell-inspection-queue' 
+    path: '/admin/resell' 
   },
   { 
     icon: <DollarSign size={20} />, 

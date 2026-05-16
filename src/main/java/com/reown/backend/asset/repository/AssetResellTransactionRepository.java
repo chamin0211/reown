@@ -8,4 +8,6 @@ import java.util.List;
 public interface AssetResellTransactionRepository extends JpaRepository<AssetResellTransaction, Long> {
 
     List<AssetResellTransaction> findByBuyerIdOrderByCreatedAtDesc(Long buyerId);
+
+    List<AssetResellTransaction> findByResellIdOrderByCreatedAtDesc(Long resellId);
 }

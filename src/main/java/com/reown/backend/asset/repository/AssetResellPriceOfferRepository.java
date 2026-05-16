@@ -11,5 +11,7 @@ public interface AssetResellPriceOfferRepository extends JpaRepository<AssetRese
 
     List<AssetResellPriceOffer> findByResellIdOrderByCreatedAtDesc(Long resellId);
 
+    List<AssetResellPriceOffer> findByResellIdAndStatusOrderByCreatedAtDesc(Long resellId, String status);
+
     List<AssetResellPriceOffer> findByBuyerIdOrderByCreatedAtDesc(Long buyerId);
 }

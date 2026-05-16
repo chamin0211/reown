@@ -3,9 +3,9 @@ DB 관련 설명
 - 펀딩 기능은 아래 DB 테이블을 사용합니다.
   1) catalog_product: 펀딩 상품의 기본 정보입니다. sale_type='FUNDING'인 상품이 펀딩 대상입니다.
   2) catalog_product_option: 펀딩 참여 시 선택하는 색상/사이즈 옵션입니다.
-  3) trade_funding_campaign: 목표 금액, 현재 금액, 시작일, 종료일, 펀딩 상태를 저장합니다.
+  3) trade_funding_campaign: 목표 금액, 현재 금액, 시작일, 종료일, 펀딩 상태와 제작 단계를 저장합니다.
   4) trade_funding_participation: 사용자의 펀딩 참여 내역을 저장합니다.
-- 셀러 등록은 product + campaign을 동시에 만들고, 관리자가 승인해야 사용자 펀딩 목록에 노출됩니다.
+- 결제 연동 전에는 production_stage를 통해 성공한 펀딩의 제작/배송 진행 상황을 관리합니다.
 */
 package com.reown.backend.trade.controller;
 
@@ -15,6 +15,9 @@ import com.reown.backend.trade.dto.FundingParticipateRequest;
 import com.reown.backend.trade.dto.FundingParticipateResponse;
 import com.reown.backend.trade.dto.FundingParticipationResponse;
 import com.reown.backend.trade.dto.FundingProductCreateRequest;
+import com.reown.backend.trade.dto.FundingProductionStageUpdateRequest;
+import com.reown.backend.trade.dto.FundingUpdateCreateRequest;
+import com.reown.backend.trade.dto.FundingUpdateResponse;
 import com.reown.backend.trade.service.FundingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +47,25 @@ public class FundingController {
         return fundingService.getSellerFundings(brandId, status);
     }
 
+    @PatchMapping("/seller/{campaignId}/production-stage")
+    public FundingCampaignResponse updateSellerProductionStage(
+            @PathVariable Long campaignId,
+            @RequestParam Long brandId,
+            @RequestBody FundingProductionStageUpdateRequest request
+    ) {
+        return fundingService.updateProductionStageBySeller(campaignId, brandId, request.productionStage());
+    }
+
+
+    @PostMapping("/seller/{campaignId}/updates")
+    public FundingUpdateResponse createSellerFundingUpdate(
+            @PathVariable Long campaignId,
+            @RequestParam Long brandId,
+            @RequestBody FundingUpdateCreateRequest request
+    ) {
+        return fundingService.createSellerFundingUpdate(campaignId, brandId, request);
+    }
+
     @GetMapping("/admin")
     public List<FundingCampaignResponse> getAdminFundings(
             @RequestParam(required = false) String status
@@ -65,6 +87,14 @@ public class FundingController {
         return fundingService.rejectFunding(campaignId);
     }
 
+    @PatchMapping("/admin/{campaignId}/production-stage")
+    public FundingCampaignResponse updateAdminProductionStage(
+            @PathVariable Long campaignId,
+            @RequestBody FundingProductionStageUpdateRequest request
+    ) {
+        return fundingService.updateProductionStageByAdmin(campaignId, request.productionStage());
+    }
+
     @PostMapping
     public FundingCampaignResponse createFunding(
             @Valid @RequestBody FundingCreateRequest request
@@ -84,6 +114,14 @@ public class FundingController {
             @PathVariable Long campaignId
     ) {
         return fundingService.getFundingDetail(campaignId);
+    }
+
+
+    @GetMapping("/{campaignId}/updates")
+    public List<FundingUpdateResponse> getFundingUpdates(
+            @PathVariable Long campaignId
+    ) {
+        return fundingService.getFundingUpdates(campaignId);
     }
 
     @PostMapping("/{campaignId}/participate")

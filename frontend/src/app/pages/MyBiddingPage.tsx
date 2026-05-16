@@ -1,236 +1,158 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
 import { Header } from '../components/Header';
-import { Clock, Circle } from 'lucide-react';
-import { allProducts } from '../data/products';
+import { getLoginUser } from '../auth/session';
+import { getBuyerOffers, getBuyerResellTransactions } from '../api/resellApi';
+import type { ResellOfferDetailResponse, ResellTransactionDetailResponse } from '../api/resellApi';
+import { Gavel, Package, Trophy } from 'lucide-react';
 
-interface BidItem {
-  bidId: string;
-  product: typeof allProducts[0];
-  yourBid: number;
-  currentPrice: number;
-  isHighestBidder: boolean;
-  endTime: Date;
-  bidCount: number;
+function formatPrice(value?: number | null) {
+  return `₩${Number(value ?? 0).toLocaleString()}`;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '-';
+  return new Date(value).toLocaleString();
+}
+
+function getImageUrl(item: { thumbnailUrl: string | null; productId: number }) {
+  if (item.thumbnailUrl && item.thumbnailUrl.startsWith('http')) return item.thumbnailUrl;
+  return `https://picsum.photos/seed/reown-bidding-${item.productId}/300/400`;
+}
+
+function getBidStatusLabel(status: string) {
+  switch (status) {
+    case 'LEADING': return '현재 최고 입찰';
+    case 'OUTBID': return '상위 입찰 발생';
+    case 'ACCEPTED': return '낙찰';
+    case 'REJECTED': return '거절';
+    default: return status;
+  }
+}
+
+function getBidStatusStyle(status: string) {
+  switch (status) {
+    case 'LEADING': return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'ACCEPTED': return 'bg-green-50 text-green-700 border-green-200';
+    case 'OUTBID': return 'bg-gray-50 text-gray-600 border-gray-200';
+    case 'REJECTED': return 'bg-red-50 text-red-700 border-red-200';
+    default: return 'bg-gray-50 text-gray-600 border-gray-200';
+  }
 }
 
 export function MyBiddingPage() {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const navigate = useNavigate();
+  const [offers, setOffers] = useState<ResellOfferDetailResponse[]>([]);
+  const [transactions, setTransactions] = useState<ResellTransactionDetailResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'offers' | 'wins'>('offers');
 
-  // Update time every second for countdown
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const loginUser = getLoginUser();
+    if (!loginUser) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
 
-  // Sample bidding data
-  const bids: BidItem[] = [
-    {
-      bidId: 'BID-2024-001',
-      product: allProducts[0],
-      yourBid: 880000,
-      currentPrice: 880000,
-      isHighestBidder: true,
-      endTime: new Date(Date.now() + 2 * 60 * 60 * 1000 + 15 * 60 * 1000 + 30 * 1000), // 2h 15m 30s
-      bidCount: 12,
-    },
-    {
-      bidId: 'BID-2024-002',
-      product: allProducts[1],
-      yourBid: 1150000,
-      currentPrice: 1200000,
-      isHighestBidder: false,
-      endTime: new Date(Date.now() + 5 * 60 * 60 * 1000 + 42 * 60 * 1000), // 5h 42m
-      bidCount: 24,
-    },
-    {
-      bidId: 'BID-2024-003',
-      product: allProducts[2],
-      yourBid: 650000,
-      currentPrice: 650000,
-      isHighestBidder: true,
-      endTime: new Date(Date.now() + 1 * 60 * 60 * 1000 + 8 * 60 * 1000), // 1h 8m
-      bidCount: 8,
-    },
-  ];
+    Promise.all([getBuyerOffers(loginUser.userId), getBuyerResellTransactions(loginUser.userId)])
+      .then(([offerData, transactionData]) => {
+        setOffers(offerData);
+        setTransactions(transactionData);
+      })
+      .catch((error) => {
+        console.error('입찰 현황 조회 실패:', error);
+        alert('입찰 현황을 불러오지 못했습니다.');
+      })
+      .finally(() => setLoading(false));
+  }, [navigate]);
 
-  const getCountdown = (endTime: Date) => {
-    const diff = endTime.getTime() - currentTime.getTime();
-    if (diff <= 0) return { hours: 0, minutes: 0, seconds: 0 };
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-    return { hours, minutes, seconds };
-  };
-
-  const formatTime = (value: number) => value.toString().padStart(2, '0');
+  const leadingCount = useMemo(() => offers.filter((offer) => offer.offerStatus === 'LEADING').length, [offers]);
+  const outbidCount = useMemo(() => offers.filter((offer) => offer.offerStatus === 'OUTBID').length, [offers]);
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="pt-24 pb-20">
-        <div className="max-w-[1200px] mx-auto px-12">
-          {/* Page Title */}
-          <div className="mb-12">
-            <h1 className="text-4xl font-light tracking-wider mb-3" style={{ color: '#101828' }}>
-              Bidding Status
-            </h1>
-            <p className="text-sm font-light text-gray-500">
-              {bids.filter(b => b.isHighestBidder).length} active bids • {bids.length} total
-            </p>
+      <main className="pt-24 pb-20">
+        <div className="max-w-[1100px] mx-auto px-8">
+          <div className="flex items-end justify-between mb-10">
+            <div>
+              <p className="text-sm text-gray-500 uppercase tracking-widest mb-2">MY BIDDING</p>
+              <h1 className="text-4xl font-semibold mb-3" style={{ color: '#101828' }}>입찰 현황</h1>
+              <p className="text-gray-500">프리미엄 리셀 상품에 입찰한 내역과 낙찰 내역을 확인합니다.</p>
+            </div>
+            <Link to="/resell" className="px-5 py-3 rounded-xl bg-[#101828] text-white text-sm font-semibold">리셀 마켓 보기</Link>
           </div>
 
-          {/* Bidding Items */}
-          {bids.length === 0 ? (
-            <div className="text-center py-20">
-              <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-xl font-light mb-2" style={{ color: '#101828' }}>
-                No active bids
-              </h3>
-              <p className="text-gray-500 font-light">
-                Start bidding on items you're interested in
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {bids.map((bid) => {
-                const countdown = getCountdown(bid.endTime);
-                const isUrgent = countdown.hours === 0 && countdown.minutes < 30;
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="rounded-2xl border border-gray-100 p-5"><p className="text-sm text-gray-500 mb-2">전체 입찰</p><p className="text-3xl font-bold">{offers.length}건</p></div>
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5"><p className="text-sm text-blue-700 mb-2">최고 입찰 중</p><p className="text-3xl font-bold text-blue-900">{leadingCount}건</p></div>
+            <div className="rounded-2xl border border-green-100 bg-green-50 p-5"><p className="text-sm text-green-700 mb-2">낙찰/구매 완료</p><p className="text-3xl font-bold text-green-900">{transactions.length}건</p></div>
+          </div>
 
-                return (
-                  <div
-                    key={bid.bidId}
-                    className="p-8"
-                    style={{
-                      border: `0.5px solid ${isUrgent ? '#fecaca' : '#e5e7eb'}`,
-                      backgroundColor: isUrgent ? '#fef2f2' : 'white',
-                    }}
-                  >
-                    <div className="flex gap-8">
-                      {/* Product Image */}
-                      <div className="flex-shrink-0 w-32 h-40 bg-gray-50 overflow-hidden">
-                        <img
-                          src={bid.product.ogImageUrl}
-                          alt={bid.product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+          <div className="flex gap-2 mb-6">
+            <button onClick={() => setTab('offers')} className={`px-5 py-2.5 rounded-lg font-semibold ${tab === 'offers' ? 'bg-[#101828] text-white' : 'border border-gray-200 text-gray-600'}`}>입찰 내역</button>
+            <button onClick={() => setTab('wins')} className={`px-5 py-2.5 rounded-lg font-semibold ${tab === 'wins' ? 'bg-[#101828] text-white' : 'border border-gray-200 text-gray-600'}`}>낙찰/구매 내역</button>
+          </div>
 
-                      {/* Bid Details */}
-                      <div className="flex-1 flex flex-col justify-between">
-                        {/* Product Info & Status */}
-                        <div>
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-500 uppercase tracking-widest font-light mb-1 truncate">
-                                {bid.product.brandName}
-                              </p>
-                              <h3 className="text-lg font-light mb-2 truncate" style={{ color: '#101828' }}>
-                                {bid.product.name}
-                              </h3>
-                            </div>
-
-                            {/* Status Indicator */}
-                            <div className="flex items-center gap-2 px-4 py-2" style={{ backgroundColor: bid.isHighestBidder ? '#f0fdf4' : '#fef2f2', border: `0.5px solid ${bid.isHighestBidder ? '#86efac' : '#fecaca'}` }}>
-                              <Circle
-                                className="w-2 h-2"
-                                style={{
-                                  fill: bid.isHighestBidder ? '#16a34a' : '#dc2626',
-                                  color: bid.isHighestBidder ? '#16a34a' : '#dc2626',
-                                }}
-                              />
-                              <span
-                                className="text-sm font-light"
-                                style={{ color: bid.isHighestBidder ? '#16a34a' : '#dc2626' }}
-                              >
-                                {bid.isHighestBidder ? 'Highest Bidder' : 'Outbid'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Countdown Timer */}
-                          <div className="flex items-center gap-3 mb-4">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <span
-                                  className="text-2xl font-light tabular-nums"
-                                  style={{ color: isUrgent ? '#dc2626' : '#101828' }}
-                                >
-                                  {formatTime(countdown.hours)}
-                                </span>
-                                <span className="text-sm font-light text-gray-500">h</span>
-                              </div>
-                              <span className="text-lg font-light text-gray-400">:</span>
-                              <div className="flex items-center gap-1">
-                                <span
-                                  className="text-2xl font-light tabular-nums"
-                                  style={{ color: isUrgent ? '#dc2626' : '#101828' }}
-                                >
-                                  {formatTime(countdown.minutes)}
-                                </span>
-                                <span className="text-sm font-light text-gray-500">m</span>
-                              </div>
-                              <span className="text-lg font-light text-gray-400">:</span>
-                              <div className="flex items-center gap-1">
-                                <span
-                                  className="text-2xl font-light tabular-nums"
-                                  style={{ color: isUrgent ? '#dc2626' : '#101828' }}
-                                >
-                                  {formatTime(countdown.seconds)}
-                                </span>
-                                <span className="text-sm font-light text-gray-500">s</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Bid Info */}
-                          <div className="flex items-center gap-8 text-sm font-light">
-                            <div>
-                              <span className="text-gray-500">Current Price:</span>{' '}
-                              <span className="font-medium" style={{ color: '#101828' }}>
-                                ₩{bid.currentPrice.toLocaleString()}
-                              </span>
-                            </div>
-                            <div style={{ width: '0.5px', height: '14px', backgroundColor: '#d1d5db' }} />
-                            <div>
-                              <span className="text-gray-500">Your Bid:</span>{' '}
-                              <span className="font-medium" style={{ color: bid.isHighestBidder ? '#16a34a' : '#dc2626' }}>
-                                ₩{bid.yourBid.toLocaleString()}
-                              </span>
-                            </div>
-                            <div style={{ width: '0.5px', height: '14px', backgroundColor: '#d1d5db' }} />
-                            <div>
-                              <span className="text-gray-500">Total Bids:</span>{' '}
-                              <span style={{ color: '#101828' }}>{bid.bidCount}</span>
-                            </div>
-                          </div>
+          {loading ? (
+            <div className="text-center py-20 text-gray-500">입찰 현황을 불러오는 중입니다...</div>
+          ) : tab === 'offers' ? (
+            offers.length === 0 ? (
+              <div className="text-center py-20 border border-gray-200 rounded-2xl"><Gavel className="w-14 h-14 mx-auto mb-4 text-gray-300" /><p className="text-gray-500">아직 입찰한 리셀 상품이 없습니다.</p></div>
+            ) : (
+              <div className="space-y-4">
+                {offers.map((offer) => (
+                  <Link to={`/resell/${offer.resellId}`} key={offer.offerId} className="block rounded-2xl border border-gray-200 p-5 hover:bg-gray-50">
+                    <div className="flex gap-5">
+                      <img src={getImageUrl(offer)} alt={offer.productName} className="w-24 h-28 object-cover rounded-xl bg-gray-100" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2"><span className={`px-3 py-1 rounded-full border text-xs font-semibold ${getBidStatusStyle(offer.offerStatus)}`}>{getBidStatusLabel(offer.offerStatus)}</span><span className="text-xs text-purple-700 font-semibold">{offer.rarityGrade || 'ARCHIVE'}</span></div>
+                        <h3 className="font-semibold text-gray-900 mb-1 truncate">{offer.productName}</h3>
+                        <p className="text-sm text-gray-500 mb-3">{offer.color || '-'} / {offer.size || '-'}</p>
+                        <div className="grid grid-cols-4 gap-4 text-sm">
+                          <div><p className="text-gray-500">내 입찰가</p><p className="font-bold text-gray-900">{formatPrice(offer.offerPrice)}</p></div>
+                          <div><p className="text-gray-500">현재 최고가</p><p className="font-bold text-blue-800">{formatPrice(offer.currentHighestBid || offer.startPrice)}</p></div>
+                          <div><p className="text-gray-500">즉시 구매가</p><p className="font-bold text-gray-900">{formatPrice(offer.instantBuyPrice)}</p></div>
+                          <div><p className="text-gray-500">입찰일</p><p className="font-semibold text-gray-900">{formatDate(offer.createdAt)}</p></div>
                         </div>
                       </div>
-
-                      {/* Action Button */}
-                      <div className="flex-shrink-0 flex items-end">
-                        {!bid.isHighestBidder && (
-                          <button
-                            className="px-8 py-4 text-sm text-white font-medium tracking-wide transition-opacity hover:opacity-90"
-                            style={{ backgroundColor: '#101828' }}
-                          >
-                            Update Bid
-                          </button>
-                        )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )
+          ) : (
+            transactions.length === 0 ? (
+              <div className="text-center py-20 border border-gray-200 rounded-2xl"><Trophy className="w-14 h-14 mx-auto mb-4 text-gray-300" /><p className="text-gray-500">낙찰 또는 즉시 구매한 내역이 없습니다.</p></div>
+            ) : (
+              <div className="space-y-4">
+                {transactions.map((tx) => (
+                  <Link to={`/resell/${tx.resellId}`} key={tx.transactionId} className="block rounded-2xl border border-gray-200 p-5 hover:bg-gray-50">
+                    <div className="flex gap-5">
+                      <img src={getImageUrl(tx)} alt={tx.productName} className="w-24 h-28 object-cover rounded-xl bg-gray-100" />
+                      <div className="flex-1">
+                        <span className="inline-flex px-3 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 text-xs font-semibold mb-2">거래 완료</span>
+                        <h3 className="font-semibold text-gray-900 mb-1">{tx.productName}</h3>
+                        <p className="text-sm text-gray-500 mb-3">{tx.color || '-'} / {tx.size || '-'}</p>
+                        <div className="grid grid-cols-4 gap-4 text-sm">
+                          <div><p className="text-gray-500">거래가</p><p className="font-bold text-gray-900">{formatPrice(tx.resellPrice)}</p></div>
+                          <div><p className="text-gray-500">플랫폼 수수료</p><p className="font-bold text-gray-900">{formatPrice(tx.platformFee)}</p></div>
+                          <div><p className="text-gray-500">등급</p><p className="font-bold text-purple-700">{tx.rarityGrade || 'ARCHIVE'}</p></div>
+                          <div><p className="text-gray-500">거래일</p><p className="font-semibold text-gray-900">{formatDate(tx.createdAt)}</p></div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  </Link>
+                ))}
+              </div>
+            )
           )}
+
+          {outbidCount > 0 && tab === 'offers' && <p className="mt-6 text-sm text-gray-500">상위 입찰이 발생한 내역은 리셀 상세 페이지에서 다시 입찰할 수 있습니다.</p>}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

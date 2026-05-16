@@ -35,12 +35,7 @@ public class AssetResellTransaction {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    public AssetResellTransaction(
-            Long resellId,
-            Long buyerId,
-            Integer resellPrice,
-            Integer platformFee
-    ) {
+    public AssetResellTransaction(Long resellId, Long buyerId, Integer resellPrice, Integer platformFee) {
         this.resellId = resellId;
         this.buyerId = buyerId;
         this.resellPrice = resellPrice;

@@ -1,212 +1,277 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, Gavel, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Clock, Gavel, ShieldCheck, ShoppingBag, TrendingUp } from 'lucide-react';
 import { Header } from '../components/Header';
 import { getLoginUser } from '../auth/session';
-import { getResellDetail } from '../api/resellApi';
-import type { ResellResponse } from '../api/resellApi';
+import { getResellDetail, getResellOffers, instantBuyResell, placeResellBid } from '../api/resellApi';
+import type { ResellOfferResponse, ResellResponse } from '../api/resellApi';
 
 function getImageUrl(item: ResellResponse) {
-    if (!item.thumbnailUrl) {
-        return `https://picsum.photos/seed/reown-resell-${item.productId}/600/800`;
-    }
-
-    if (item.thumbnailUrl.startsWith('http')) {
-        return item.thumbnailUrl;
-    }
-
-    if (item.thumbnailUrl.startsWith('/')) {
-        return item.thumbnailUrl;
-    }
-
-    if (item.thumbnailUrl.startsWith('./')) {
-        return `/${item.thumbnailUrl.slice(2)}`;
-    }
-
-    return `/${item.thumbnailUrl}`;
+  if (item.thumbnailUrl && item.thumbnailUrl.startsWith('http')) return item.thumbnailUrl;
+  return `https://picsum.photos/seed/reown-premium-resell-${item.productId}/800/1000`;
 }
 
-function getBrandName(productName: string) {
-    return productName.split(' ')[0] || 'RE:OWN';
+function formatPrice(value?: number | null) {
+  return `₩${Number(value ?? 0).toLocaleString()}`;
+}
+
+function getDisplayBid(item: ResellResponse) {
+  return item.currentHighestBid && item.currentHighestBid > 0 ? item.currentHighestBid : item.startPrice;
+}
+
+function getMinNextBid(item: ResellResponse) {
+  return getDisplayBid(item) + (item.minBidIncrement || 1000);
+}
+
+function getTimeLeft(date?: string | null) {
+  if (!date) return '마감일 없음';
+  const diff = new Date(date).getTime() - Date.now();
+  if (diff <= 0) return '입찰 마감';
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diff / (1000 * 60)) % 60);
+  if (days > 0) return `${days}일 ${hours}시간 남음`;
+  if (hours > 0) return `${hours}시간 ${minutes}분 남음`;
+  return `${minutes}분 남음`;
+}
+
+function getOfferLabel(status: string) {
+  switch (status) {
+    case 'LEADING': return '최고 입찰';
+    case 'OUTBID': return '상위 입찰 발생';
+    case 'ACCEPTED': return '낙찰';
+    case 'REJECTED': return '거절';
+    default: return status;
+  }
 }
 
 export function ResellDetailPage() {
-    const { resellId } = useParams();
-    const navigate = useNavigate();
+  const params = useParams();
+  const navigate = useNavigate();
+  const resellId = Number(params.resellId);
 
-    const [item, setItem] = useState<ResellResponse | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [offerPrice, setOfferPrice] = useState('');
+  const [item, setItem] = useState<ResellResponse | null>(null);
+  const [offers, setOffers] = useState<ResellOfferResponse[]>([]);
+  const [bidPrice, setBidPrice] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-    useEffect(() => {
-        const numericResellId = Number(resellId);
+  const load = () => {
+    if (!Number.isFinite(resellId)) return;
+    setLoading(true);
+    Promise.all([getResellDetail(resellId), getResellOffers(resellId)])
+      .then(([detail, bids]) => {
+        setItem(detail);
+        setOffers(bids);
+        setBidPrice(String(getMinNextBid(detail)));
+      })
+      .catch((error) => {
+        console.error('리셀 상세 조회 실패:', error);
+        alert('리셀 상품을 불러오지 못했습니다.');
+        navigate('/resell');
+      })
+      .finally(() => setLoading(false));
+  };
 
-        if (Number.isNaN(numericResellId)) {
-            alert('리셀 상품 정보를 찾을 수 없습니다.');
-            navigate('/resell');
-            return;
-        }
+  useEffect(load, [resellId, navigate]);
 
-        getResellDetail(numericResellId)
-            .then((data) => {
-                setItem(data);
-                setOfferPrice(String(data.resellPrice));
-            })
-            .catch((error) => {
-                console.error('리셀 상세 조회 실패:', error);
-                alert('리셀 상품을 불러오지 못했습니다.');
-                navigate('/resell');
-            })
-            .finally(() => {
-                setLoading(false);
-            });
-    }, [resellId, navigate]);
+  const sortedOffers = useMemo(() => [...offers].sort((a, b) => b.offerPrice - a.offerPrice), [offers]);
 
-    const handleOfferSubmit = () => {
-        const loginUser = getLoginUser();
-
-        if (!loginUser) {
-            alert('로그인이 필요합니다.');
-            navigate('/login');
-            return;
-        }
-
-        const numericOfferPrice = Number(offerPrice);
-
-        if (Number.isNaN(numericOfferPrice) || numericOfferPrice <= 0) {
-            alert('제안 가격을 올바르게 입력해주세요.');
-            return;
-        }
-
-        alert(`가격 제안 화면 연결 확인\n제안 가격: ₩${numericOfferPrice.toLocaleString()}`);
-
-        // 다음 단계에서 실제 가격 제안 API를 연결할 예정
-        navigate('/my/bidding');
-    };
-
-    if (loading || !item) {
-        return (
-            <div className="min-h-screen bg-white">
-                <Header />
-                <div className="pt-32 text-center text-gray-500">
-                    리셀 상품 정보를 불러오는 중입니다...
-                </div>
-            </div>
-        );
+  const handleBid = async () => {
+    const loginUser = getLoginUser();
+    if (!loginUser) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+    if (!item) return;
+    if (item.sellerId === loginUser.userId) {
+      alert('본인 리셀 상품에는 입찰할 수 없습니다.');
+      return;
+    }
+    if (item.status !== 'ON_SALE') {
+      alert('현재 입찰 가능한 상태가 아닙니다.');
+      return;
     }
 
+    const price = Number(bidPrice);
+    const minBid = getMinNextBid(item);
+    if (!Number.isFinite(price) || price < minBid) {
+      alert(`최소 입찰가는 ${formatPrice(minBid)}입니다.`);
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await placeResellBid(item.resellId, { buyerId: loginUser.userId, offerPrice: price });
+      alert('입찰이 등록되었습니다. 현재 최고 입찰가가 갱신됩니다.');
+      load();
+    } catch (error) {
+      console.error('입찰 실패:', error);
+      alert(error instanceof Error ? error.message : '입찰에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleInstantBuy = async () => {
+    const loginUser = getLoginUser();
+    if (!loginUser) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+    if (!item) return;
+    if (item.sellerId === loginUser.userId) {
+      alert('본인 리셀 상품은 구매할 수 없습니다.');
+      return;
+    }
+    if (!confirm(`${formatPrice(item.instantBuyPrice)}에 즉시 구매 처리할까요? MVP에서는 mock 거래로 완료됩니다.`)) return;
+
+    try {
+      setSubmitting(true);
+      await instantBuyResell(item.resellId, loginUser.userId);
+      alert('즉시 구매가 완료되었습니다.');
+      navigate('/my/bidding');
+    } catch (error) {
+      console.error('즉시 구매 실패:', error);
+      alert(error instanceof Error ? error.message : '즉시 구매에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
     return (
-        <div className="min-h-screen bg-white">
-            <Header />
-
-            <main className="pt-24 pb-20">
-                <div className="max-w-[1200px] mx-auto px-8">
-                    <Link
-                        to="/resell"
-                        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-8"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        리셀 마켓으로 돌아가기
-                    </Link>
-
-                    <div className="grid grid-cols-2 gap-12">
-                        <div>
-                            <div className="aspect-[3/4] bg-gray-100 overflow-hidden rounded-lg">
-                                <img
-                                    src={getImageUrl(item)}
-                                    alt={item.productName}
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="mb-6">
-                                <p className="text-sm text-gray-500 uppercase tracking-widest mb-2">
-                                    {getBrandName(item.productName)}
-                                </p>
-
-                                <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                                    {item.productName}
-                                </h1>
-
-                                <div className="flex items-end gap-3 mb-4">
-                                    <p className="text-3xl font-bold text-gray-900">
-                                        ₩{item.resellPrice.toLocaleString()}
-                                    </p>
-                                    <p className="text-sm text-gray-500 mb-1">
-                                        {item.color} / {item.size}
-                                    </p>
-                                </div>
-
-                                <div className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-900 rounded-lg text-sm">
-                                    <ShieldCheck className="w-4 h-4" />
-                                    디지털 보증서 기반 리셀 상품
-                                </div>
-                            </div>
-
-                            <div className="border-t border-gray-200 py-6 space-y-4">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">리셀 번호</span>
-                                    <span className="text-gray-900">#{item.resellId}</span>
-                                </div>
-
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">판매자 번호</span>
-                                    <span className="text-gray-900">#{item.sellerId}</span>
-                                </div>
-
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">판매 상태</span>
-                                    <span className="text-gray-900">{item.status}</span>
-                                </div>
-
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">등록일</span>
-                                    <span className="text-gray-900">{item.createdAt.slice(0, 10)}</span>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-gray-200 py-6">
-                                <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                                    상품 상태 설명
-                                </h2>
-                                <p className="text-sm text-gray-600 leading-6">
-                                    {item.conditionDescription || '판매자가 등록한 상태 설명이 없습니다.'}
-                                </p>
-                            </div>
-
-                            <div className="border-t border-gray-200 pt-6">
-                                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                                    가격 제안하기
-                                </h2>
-
-                                <div className="flex gap-3 mb-4">
-                                    <input
-                                        type="number"
-                                        value={offerPrice}
-                                        onChange={(e) => setOfferPrice(e.target.value)}
-                                        className="flex-1 border border-gray-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-900"
-                                        placeholder="제안 가격"
-                                    />
-
-                                    <button
-                                        onClick={handleOfferSubmit}
-                                        className="px-6 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800"
-                                    >
-                                        <Gavel className="w-4 h-4 inline-block mr-2" />
-                                        제안하기
-                                    </button>
-                                </div>
-
-                                <p className="text-xs text-gray-500">
-                                    현재는 화면 연결 단계입니다. 다음 단계에서 실제 제안 API를 연결합니다.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
+      <div className="min-h-screen bg-white">
+        <Header />
+        <main className="pt-28 text-center text-gray-500">리셀 상품을 불러오는 중입니다...</main>
+      </div>
     );
+  }
+
+  if (!item) return null;
+
+  const currentBid = getDisplayBid(item);
+  const minBid = getMinNextBid(item);
+  const canBid = item.status === 'ON_SALE';
+
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
+
+      <main className="pt-24 pb-20">
+        <div className="max-w-[1200px] mx-auto px-8">
+          <Link to="/resell" className="inline-flex items-center gap-2 text-sm text-gray-500 mb-8 hover:text-gray-900">
+            <ArrowLeft className="w-4 h-4" />
+            리셀 마켓으로 돌아가기
+          </Link>
+
+          <div className="grid grid-cols-[1fr_0.9fr] gap-12">
+            <div className="aspect-[4/5] bg-gray-100 rounded-3xl overflow-hidden">
+              <img src={getImageUrl(item)} alt={item.productName} className="w-full h-full object-cover" />
+            </div>
+
+            <div>
+              <div className="flex flex-wrap gap-2 mb-5">
+                <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-sm">
+                  <ShieldCheck className="w-4 h-4" />
+                  관리자 검수 완료
+                </span>
+                <span className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-full text-sm">
+                  {item.rarityGrade || 'ARCHIVE'}
+                </span>
+              </div>
+
+              <h1 className="text-4xl font-semibold mb-3" style={{ color: '#101828' }}>{item.productName}</h1>
+              <p className="text-gray-500 mb-8">{item.color || '-'} / {item.size || '-'} · Premium Bidding Resell</p>
+
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="rounded-2xl border border-gray-200 p-5">
+                  <p className="text-sm text-gray-500 mb-2">시작가</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatPrice(item.startPrice)}</p>
+                </div>
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                  <p className="text-sm text-blue-700 mb-2 flex items-center gap-1"><TrendingUp className="w-4 h-4" /> 현재 최고가</p>
+                  <p className="text-2xl font-bold text-blue-900">{formatPrice(currentBid)}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 p-5">
+                  <p className="text-sm text-gray-500 mb-2">입찰 수</p>
+                  <p className="text-2xl font-bold text-gray-900">{item.bidCount ?? 0}건</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 p-5">
+                  <p className="text-sm text-gray-500 mb-2 flex items-center gap-1"><Clock className="w-4 h-4" /> 남은 시간</p>
+                  <p className="text-2xl font-bold text-gray-900">{getTimeLeft(item.auctionEndAt)}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 p-6 mb-6">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><Gavel className="w-5 h-5" /> 입찰하기</h2>
+                <p className="text-sm text-gray-500 mb-3">최소 입찰가: <b className="text-gray-900">{formatPrice(minBid)}</b></p>
+                <div className="flex gap-3">
+                  <input
+                    type="number"
+                    value={bidPrice}
+                    onChange={(e) => setBidPrice(e.target.value)}
+                    disabled={!canBid || submitting}
+                    className="flex-1 border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-900 disabled:bg-gray-100"
+                    placeholder="입찰가 입력"
+                  />
+                  <button
+                    onClick={handleBid}
+                    disabled={!canBid || submitting}
+                    className="px-6 py-3 rounded-xl bg-[#101828] text-white font-semibold disabled:bg-gray-400"
+                  >
+                    입찰 등록
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={handleInstantBuy}
+                disabled={!canBid || submitting}
+                className="w-full py-4 rounded-xl bg-blue-700 text-white font-semibold mb-8 disabled:bg-gray-400 flex items-center justify-center gap-2"
+              >
+                <ShoppingBag className="w-5 h-5" />
+                즉시 구매 {formatPrice(item.instantBuyPrice)}
+              </button>
+
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="rounded-2xl bg-gray-50 p-5">
+                  <p className="text-sm text-gray-500 mb-2">프리미엄 사유</p>
+                  <p className="text-sm text-gray-900 leading-6">{item.premiumReason || '한정 수량 또는 희소성이 확인된 상품입니다.'}</p>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-5">
+                  <p className="text-sm text-gray-500 mb-2">검수 메모</p>
+                  <p className="text-sm text-gray-900 leading-6">{item.verificationNote || '관리자 검수 완료'}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 font-semibold">입찰 내역</div>
+                {sortedOffers.length === 0 ? (
+                  <div className="px-5 py-8 text-center text-gray-500">아직 입찰 내역이 없습니다.</div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {sortedOffers.slice(0, 8).map((offer) => (
+                      <div key={offer.offerId} className="px-5 py-4 flex items-center justify-between text-sm">
+                        <div>
+                          <p className="font-semibold text-gray-900">구매자 ID {offer.buyerId}</p>
+                          <p className="text-gray-500">{new Date(offer.createdAt).toLocaleString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-gray-900">{formatPrice(offer.offerPrice)}</p>
+                          <p className="text-xs text-blue-700">{getOfferLabel(offer.status)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 }
