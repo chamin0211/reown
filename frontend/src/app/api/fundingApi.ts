@@ -1,12 +1,11 @@
 /*
 DB 관련 설명
-- 이 파일은 프론트에서 펀딩 DB 데이터를 다룰 때 사용하는 API 함수입니다.
-- 백엔드에서는 주로 아래 테이블을 사용합니다.
-  1) trade_funding_campaign: 펀딩 캠페인 정보입니다. 목표 금액, 현재 금액, 시작일, 종료일, 상태가 저장됩니다.
-  2) trade_funding_participation: 사용자의 펀딩 참여 내역입니다. user_id, campaign_id, amount, option_id, quantity, unit_price가 저장됩니다.
-  3) catalog_product: 펀딩 상품의 이름, 가격, 이미지 URL을 저장합니다.
-  4) catalog_product_option: 사용자가 선택하는 색상/사이즈 옵션을 저장합니다.
-- 더미 SQL로 넣은 데이터든, 나중에 판매자가 웹에서 등록한 데이터든 같은 API를 통해 조회/참여합니다.
+- 펀딩 API는 아래 테이블을 사용합니다.
+  1) catalog_product: sale_type='FUNDING'인 펀딩 상품 기본 정보
+  2) catalog_product_option: 펀딩 옵션
+  3) trade_funding_campaign: 목표 금액, 현재 금액, 시작일, 종료일, 펀딩 상태
+  4) trade_funding_participation: 사용자 펀딩 참여 내역
+- 셀러 등록 → WAITING, 관리자 승인 → OPEN, 목표 달성 → SUCCESS 흐름입니다.
 */
 import { api } from './client';
 import type { Product } from '../data/products';
@@ -14,9 +13,14 @@ import type { Product } from '../data/products';
 export interface FundingCampaignResponse {
   campaignId: number;
   productId: number;
+  brandId?: number | null;
+  brandName?: string | null;
   productName: string;
   thumbnailUrl: string | null;
   productPrice: number;
+  categoryName?: string | null;
+  productStatus?: string | null;
+  maxPurchasePerUser?: number | null;
   targetAmount: number;
   currentAmount: number;
   remainingAmount: number;
@@ -24,6 +28,26 @@ export interface FundingCampaignResponse {
   startDate: string | null;
   endDate: string | null;
   fundingStatus: string;
+  participantCount?: number | null;
+  remainingDays?: number | null;
+}
+
+export interface SellerFundingCreateRequest {
+  brandId: number;
+  name: string;
+  thumbnailUrl?: string | null;
+  price: number;
+  categoryName?: string | null;
+  description?: string | null;
+  targetAmount: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  size?: string | null;
+  color?: string | null;
+  colorHex?: string | null;
+  stockQuantity?: number | null;
+  safetyStock?: number | null;
+  maxPurchasePerUser?: number | null;
 }
 
 export interface FundingParticipateRequest {
@@ -82,9 +106,10 @@ export function mapFundingToProduct(campaign: FundingCampaignResponse): Product 
     productId: String(campaign.productId),
     fundingCampaignId: campaign.campaignId,
     name: campaign.productName,
-    brandName: fallbackBrandName,
+    brandName: campaign.brandName || fallbackBrandName,
     price: campaign.productPrice,
     saleType: 'FUNDING',
+    categoryName: campaign.categoryName ?? undefined,
     ogImageUrl: imageUrl,
     images: [imageUrl],
     availableSizes: ['Free'],
@@ -102,12 +127,43 @@ export function mapFundingToProduct(campaign: FundingCampaignResponse): Product 
     fundingEndDate: campaign.endDate ?? undefined,
     remainingDays: calculateRemainingDays(campaign.endDate),
     productionStages: [
-      { stage: 'funding_open', label: '펀딩 오픈', completed: true },
+      { stage: 'funding_open', label: '펀딩 오픈', completed: campaign.fundingStatus === 'OPEN' || campaign.fundingStatus === 'SUCCESS' },
       { stage: 'target_progress', label: '목표 금액 달성 중', completed: campaign.progressRate > 0 },
       { stage: 'production', label: '생산 준비', completed: campaign.fundingStatus === 'SUCCESS' },
       { stage: 'shipping_prep', label: '배송 준비', completed: false },
     ],
   };
+}
+
+export async function createSellerFundingProduct(
+  request: SellerFundingCreateRequest
+): Promise<FundingCampaignResponse> {
+  return api<FundingCampaignResponse>('/api/fundings/seller', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+export async function getSellerFundings(
+  brandId: string | number,
+  status?: string
+): Promise<FundingCampaignResponse[]> {
+  const params = new URLSearchParams({ brandId: String(brandId) });
+  if (status) params.set('status', status);
+  return api<FundingCampaignResponse[]>(`/api/fundings/seller?${params.toString()}`);
+}
+
+export async function getAdminFundings(status?: string): Promise<FundingCampaignResponse[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return api<FundingCampaignResponse[]>(`/api/fundings/admin${query}`);
+}
+
+export async function approveFunding(campaignId: string | number): Promise<FundingCampaignResponse> {
+  return api<FundingCampaignResponse>(`/api/fundings/admin/${campaignId}/approve`, { method: 'PATCH' });
+}
+
+export async function rejectFunding(campaignId: string | number): Promise<FundingCampaignResponse> {
+  return api<FundingCampaignResponse>(`/api/fundings/admin/${campaignId}/reject`, { method: 'PATCH' });
 }
 
 export async function getFundings(status?: string): Promise<FundingCampaignResponse[]> {

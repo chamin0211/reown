@@ -39,12 +39,15 @@ import { OrderManagement as SellerOrderManagement } from './seller/pages/OrderMa
 import { LimitedEditionManagement as SellerLimitedEditionManagement } from './seller/pages/LimitedEditionManagement';
 import { Settlement as SellerSettlement } from './seller/pages/Settlement';
 import { BrandProfile as SellerBrandProfile } from './seller/pages/BrandProfile';
+import { FundingCampaign as SellerFundingCampaign } from './seller/pages/FundingCampaign';
+import { FundingProjectForm as SellerFundingProjectForm } from './seller/pages/FundingProjectForm';
 import { Dashboard as AdminDashboard } from './admin/components/Dashboard';
 import { ProductManagementPage as AdminProductManagementPage } from './admin/components/ProductManagementPage';
 import { ProductReviewDetailPage as AdminProductReviewDetailPage } from './admin/components/ProductReviewDetailPage';
 import { SettlementManagementPage as AdminSettlementManagementPage } from './admin/components/SettlementManagementPage';
 import { SettlementPayoutPage as AdminSettlementPayoutPage } from './admin/components/SettlementPayoutPage';
 import { RevenueAnalyticsPage as AdminRevenueAnalyticsPage } from './admin/components/RevenueAnalyticsPage';
+import { FundingManagementPage as AdminFundingManagementPage } from './admin/components/FundingManagementPage';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 
 export const router = createBrowserRouter([
@@ -217,6 +220,8 @@ export const router = createBrowserRouter([
       { path: 'orders', Component: SellerOrderManagement },
       { path: 'limited-editions', Component: SellerLimitedEditionManagement },
       { path: 'settlement', Component: SellerSettlement },
+      { path: 'funding', Component: SellerFundingCampaign },
+      { path: 'funding/new', Component: SellerFundingProjectForm },
       { path: 'profile', Component: SellerBrandProfile },
     ],
   },
@@ -238,6 +243,16 @@ export const router = createBrowserRouter([
     ),
     ErrorBoundary: ErrorPage,
   },
+  {
+    path: '/admin/funding',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+        <AdminFundingManagementPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
   {
     path: '/admin/settlement',
     element: (

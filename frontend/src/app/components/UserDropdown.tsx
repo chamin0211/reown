@@ -7,7 +7,6 @@ import {
   Gavel,
   HeadphonesIcon,
   Heart,
-  Home,
   Lock,
   LogOut,
   Package,
@@ -52,8 +51,6 @@ export function UserDropdown({
 
   const isSeller = canUseSellerCenter(userRole);
   const isAdmin = canUseAdminDashboard(userRole);
-  const buyingCount = 2;
-  const biddingCount = 5;
   const vaultValue = 12500000;
   const tierProgress = 15;
 
@@ -224,9 +221,9 @@ export function UserDropdown({
                 <div className="px-8 py-7" style={{ borderBottom: '0.5px solid #e5e7eb' }}>
                   <h4 className="text-xs font-light text-gray-500 uppercase tracking-wider mb-5">나의 거래</h4>
                   <div className="space-y-4">
-                    {renderMenuButton({ icon: <ShoppingBag className="w-4 h-4" />, title: '구매 내역', description: '내 주문과 배송 상태 확인', path: '/my/buying', count: buyingCount })}
+                    {renderMenuButton({ icon: <ShoppingBag className="w-4 h-4" />, title: '구매 내역', description: '내 주문과 배송 상태 확인', path: '/my/buying' })}
                     {renderMenuButton({ icon: <Ticket className="w-4 h-4" />, title: '펀딩 내역', description: '참여한 펀딩 확인', path: '/my/funding' })}
-                    {renderMenuButton({ icon: <Gavel className="w-4 h-4" />, title: '입찰 현황', description: '리셀 입찰 상태 확인', path: '/my/bidding', count: biddingCount })}
+                    {renderMenuButton({ icon: <Gavel className="w-4 h-4" />, title: '입찰 현황', description: '리셀 입찰 상태 확인', path: '/my/bidding' })}
                   </div>
                 </div>
 

@@ -126,10 +126,14 @@ export function FundingDetailPage() {
   const remainingDays = useMemo(() => calculateRemainingDays(campaign?.endDate), [campaign?.endDate]);
   const progressRate = campaign ? Math.min(campaign.progressRate, 100) : 0;
   const isOpen = campaign?.fundingStatus === 'OPEN';
+  const maxAllowedQuantity = campaign?.maxPurchasePerUser && campaign.maxPurchasePerUser > 0
+    ? campaign.maxPurchasePerUser
+    : 99;
   const participateAmount = (campaign?.productPrice ?? 0) * quantity;
 
   const handleQuantityChange = (nextQuantity: number) => {
-    const normalized = Math.max(1, Math.min(99, nextQuantity));
+    const safeQuantity = Number.isFinite(nextQuantity) ? nextQuantity : 1;
+    const normalized = Math.max(1, Math.min(maxAllowedQuantity, safeQuantity));
     setQuantity(normalized);
   };
 
@@ -167,7 +171,7 @@ export function FundingDetailPage() {
       alert('펀딩 참여가 완료되었습니다. 현재 금액과 달성률이 갱신되었습니다.');
     } catch (error) {
       console.error('펀딩 참여 실패:', error);
-      alert('펀딩 참여에 실패했습니다. 백엔드 콘솔 또는 펀딩 상태를 확인해주세요.');
+      alert(error instanceof Error ? error.message : '펀딩 참여에 실패했습니다. 백엔드 콘솔 또는 펀딩 상태를 확인해주세요.');
     } finally {
       setSubmitting(false);
     }
@@ -223,10 +227,10 @@ export function FundingDetailPage() {
               </div>
 
               <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
-                <h2 className="text-lg font-semibold text-blue-950 mb-2">펀딩 시연 포인트</h2>
+                <h2 className="text-lg font-semibold text-blue-950 mb-2">펀딩 안내</h2>
                 <p className="text-sm text-blue-900 leading-6">
-                  옵션과 수량을 선택하면 참여 금액이 자동 계산됩니다. 참여하기 버튼을 누르면 DB의
-                  참여 내역 테이블에 저장되고, 캠페인의 현재 금액과 달성률이 즉시 갱신됩니다.
+                  목표 금액을 달성하면 펀딩은 성공 처리되고 제작 단계로 넘어갑니다. 종료일까지 목표를
+                  달성하지 못하면 실패 처리되며, 진행 중인 펀딩만 참여 취소가 가능합니다.
                 </p>
               </div>
             </div>
@@ -267,6 +271,14 @@ export function FundingDetailPage() {
                   <div className="rounded-xl bg-gray-50 p-4">
                     <p className="text-sm text-gray-500 mb-1">남은 금액</p>
                     <p className="font-semibold text-gray-900">{formatCurrency(campaign.remainingAmount)}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 p-4">
+                    <p className="text-sm text-gray-500 mb-1">참여자 수</p>
+                    <p className="font-semibold text-gray-900">{campaign.participantCount ?? 0}명</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 p-4">
+                    <p className="text-sm text-gray-500 mb-1">1인 최대 수량</p>
+                    <p className="font-semibold text-gray-900">{campaign.maxPurchasePerUser && campaign.maxPurchasePerUser > 0 ? `${campaign.maxPurchasePerUser}개` : '제한 없음'}</p>
                   </div>
                   <div className="rounded-xl bg-gray-50 p-4">
                     <p className="text-sm text-gray-500 mb-1">시작일</p>
@@ -324,7 +336,7 @@ export function FundingDetailPage() {
                     <input
                       type="number"
                       min={1}
-                      max={99}
+                      max={maxAllowedQuantity}
                       value={quantity}
                       onChange={(event) => handleQuantityChange(Number(event.target.value))}
                       className="h-10 w-20 rounded-xl border border-gray-300 text-center outline-none focus:border-blue-900"
@@ -332,11 +344,17 @@ export function FundingDetailPage() {
                     <button
                       type="button"
                       onClick={() => handleQuantityChange(quantity + 1)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 hover:bg-gray-50"
+                      disabled={quantity >= maxAllowedQuantity}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
+                  {campaign.maxPurchasePerUser && campaign.maxPurchasePerUser > 0 && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      1인 최대 참여 수량은 {campaign.maxPurchasePerUser}개입니다.
+                    </p>
+                  )}
                 </div>
 
                 <div className="rounded-xl bg-gray-900 p-5 text-white">
@@ -359,6 +377,12 @@ export function FundingDetailPage() {
                   {submitting ? '참여 처리 중...' : isOpen ? '펀딩 참여하기' : '참여 불가'}
                 </button>
 
+                {!isOpen && (
+                  <p className="rounded-xl bg-gray-50 p-3 text-center text-xs text-gray-500">
+                    성공/실패/취소/종료된 펀딩은 추가 참여할 수 없습니다.
+                  </p>
+                )}
+
                 <Link
                   to="/my/funding"
                   className="block w-full rounded-xl border border-gray-300 py-4 text-center text-base font-semibold text-gray-900 hover:bg-gray-50"
@@ -370,15 +394,15 @@ export function FundingDetailPage() {
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-xl border border-gray-200 p-4">
                   <TrendingUp className="mx-auto mb-2 h-5 w-5 text-blue-900" />
-                  <p className="text-xs text-gray-500">목표 달성</p>
+                  <p className="text-xs text-gray-500">목표 달성 시 성공</p>
                 </div>
                 <div className="rounded-xl border border-gray-200 p-4">
                   <Users className="mx-auto mb-2 h-5 w-5 text-blue-900" />
-                  <p className="text-xs text-gray-500">참여 저장</p>
+                  <p className="text-xs text-gray-500">참여/취소 DB 반영</p>
                 </div>
                 <div className="rounded-xl border border-gray-200 p-4">
                   <Calendar className="mx-auto mb-2 h-5 w-5 text-blue-900" />
-                  <p className="text-xs text-gray-500">일정 관리</p>
+                  <p className="text-xs text-gray-500">종료일 이후 실패 처리</p>
                 </div>
               </div>
 
@@ -388,9 +412,9 @@ export function FundingDetailPage() {
                 </h3>
                 <div className="space-y-3 text-sm text-gray-600">
                   <p>1. 펀딩 오픈 및 참여자 모집</p>
-                  <p>2. 목표 금액 달성 확인</p>
-                  <p>3. 제작 준비 및 생산 진행</p>
-                  <p>4. 배송 준비 및 순차 배송</p>
+                  <p>2. 목표 금액 달성 시 성공 처리</p>
+                  <p>3. 성공 펀딩은 제작 준비 및 생산 진행</p>
+                  <p>4. 목표 미달 상태로 종료되면 실패 처리</p>
                 </div>
               </div>
             </div>

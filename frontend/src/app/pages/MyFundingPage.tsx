@@ -11,7 +11,7 @@ DB 관련 설명
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Header } from '../components/Header';
-import { getLoginUser, type LoginUser } from '../auth/session';
+import { getLoginUser } from '../auth/session';
 import {
   cancelFundingParticipation,
   getFunding,
@@ -20,6 +20,12 @@ import {
   type FundingParticipationResponse,
 } from '../api/fundingApi';
 
+interface LoginUser {
+  userId: number;
+  email: string;
+  nickname: string;
+  role: string;
+}
 
 interface ParticipationWithCampaign extends FundingParticipationResponse {
   campaign?: FundingCampaignResponse;
@@ -48,6 +54,23 @@ function getStatusLabel(status?: string) {
       return '참여완료';
     case 'CANCELED':
       return '참여취소';
+    default:
+      return status ?? '-';
+  }
+}
+
+function getFundingStatusLabel(status?: string) {
+  switch (status) {
+    case 'OPEN':
+      return '진행중';
+    case 'SUCCESS':
+      return '성공';
+    case 'FAILED':
+      return '실패';
+    case 'REJECTED':
+      return '반려';
+    case 'CANCELED':
+      return '취소';
     default:
       return status ?? '-';
   }
@@ -87,22 +110,22 @@ export function MyFundingPage() {
   };
 
   useEffect(() => {
-    const parsedUser = getLoginUser();
+    const savedUser = getLoginUser() as LoginUser | null;
 
-    if (!parsedUser) {
+    if (!savedUser) {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
     }
 
-    setLoginUser(parsedUser);
-    loadItems(parsedUser.userId);
+    setLoginUser(savedUser);
+    loadItems(savedUser.userId);
   }, [navigate]);
 
   const handleCancel = async (participationId: number) => {
     if (!loginUser) return;
 
-    const ok = window.confirm('이 펀딩 참여를 취소할까요? 취소하면 캠페인 현재 금액과 달성률이 차감됩니다.');
+    const ok = window.confirm('이 펀딩 참여를 취소할까요? 진행 중인 펀딩에서만 취소할 수 있고, 취소하면 현재 금액과 달성률이 차감됩니다.');
     if (!ok) return;
 
     try {
@@ -112,7 +135,7 @@ export function MyFundingPage() {
       await loadItems(loginUser.userId);
     } catch (error) {
       console.error('펀딩 참여 취소 실패:', error);
-      alert('펀딩 참여 취소에 실패했습니다. 이미 취소되었거나 취소할 수 없는 상태일 수 있습니다.');
+      alert(error instanceof Error ? error.message : '펀딩 참여 취소에 실패했습니다. 성공/실패/종료된 펀딩은 취소할 수 없습니다.');
     } finally {
       setCancelingId(null);
     }
@@ -189,7 +212,7 @@ export function MyFundingPage() {
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 mb-1">펀딩 상태</p>
-                        <p className="font-semibold text-blue-900">{campaign?.fundingStatus ?? '-'}</p>
+                        <p className="font-semibold text-blue-900">{getFundingStatusLabel(campaign?.fundingStatus)}</p>
                       </div>
                     </div>
 
@@ -226,9 +249,10 @@ export function MyFundingPage() {
                         type="button"
                         onClick={() => handleCancel(item.participationId)}
                         disabled={!canCancel || cancelingId === item.participationId}
+                        title={!canCancel && !isCanceled ? '진행 중인 펀딩만 취소할 수 있습니다.' : undefined}
                         className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-gray-300"
                       >
-                        {cancelingId === item.participationId ? '취소 처리 중...' : isCanceled ? '취소 완료' : '참여 취소'}
+                        {cancelingId === item.participationId ? '취소 처리 중...' : isCanceled ? '취소 완료' : canCancel ? '참여 취소' : '취소 불가'}
                       </button>
                     </div>
                   </div>

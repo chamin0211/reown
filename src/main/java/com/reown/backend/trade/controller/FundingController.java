@@ -5,8 +5,7 @@ DB 관련 설명
   2) catalog_product_option: 펀딩 참여 시 선택하는 색상/사이즈 옵션입니다.
   3) trade_funding_campaign: 목표 금액, 현재 금액, 시작일, 종료일, 펀딩 상태를 저장합니다.
   4) trade_funding_participation: 사용자의 펀딩 참여 내역을 저장합니다.
-- 새로 추가된 참여 취소 API는 trade_funding_participation.status를 CANCELED로 변경하고,
-  trade_funding_campaign.current_amount를 참여 금액만큼 차감합니다.
+- 셀러 등록은 product + campaign을 동시에 만들고, 관리자가 승인해야 사용자 펀딩 목록에 노출됩니다.
 */
 package com.reown.backend.trade.controller;
 
@@ -15,6 +14,7 @@ import com.reown.backend.trade.dto.FundingCreateRequest;
 import com.reown.backend.trade.dto.FundingParticipateRequest;
 import com.reown.backend.trade.dto.FundingParticipateResponse;
 import com.reown.backend.trade.dto.FundingParticipationResponse;
+import com.reown.backend.trade.dto.FundingProductCreateRequest;
 import com.reown.backend.trade.service.FundingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +28,42 @@ import java.util.List;
 public class FundingController {
 
     private final FundingService fundingService;
+
+    @PostMapping("/seller")
+    public FundingCampaignResponse createSellerFundingProduct(
+            @Valid @RequestBody FundingProductCreateRequest request
+    ) {
+        return fundingService.createSellerFundingProduct(request);
+    }
+
+    @GetMapping("/seller")
+    public List<FundingCampaignResponse> getSellerFundings(
+            @RequestParam Long brandId,
+            @RequestParam(required = false) String status
+    ) {
+        return fundingService.getSellerFundings(brandId, status);
+    }
+
+    @GetMapping("/admin")
+    public List<FundingCampaignResponse> getAdminFundings(
+            @RequestParam(required = false) String status
+    ) {
+        return fundingService.getAdminFundings(status);
+    }
+
+    @PatchMapping("/admin/{campaignId}/approve")
+    public FundingCampaignResponse approveFunding(
+            @PathVariable Long campaignId
+    ) {
+        return fundingService.approveFunding(campaignId);
+    }
+
+    @PatchMapping("/admin/{campaignId}/reject")
+    public FundingCampaignResponse rejectFunding(
+            @PathVariable Long campaignId
+    ) {
+        return fundingService.rejectFunding(campaignId);
+    }
 
     @PostMapping
     public FundingCampaignResponse createFunding(
