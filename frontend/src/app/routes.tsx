@@ -43,6 +43,7 @@ import { BrandProfile as SellerBrandProfile } from './seller/pages/BrandProfile'
 import { FundingCampaign as SellerFundingCampaign } from './seller/pages/FundingCampaign';
 import { FundingProjectForm as SellerFundingProjectForm } from './seller/pages/FundingProjectForm';
 import { ResellManagement as SellerResellManagement } from './seller/pages/ResellManagement';
+import { ResellSalesManagement as SellerResellSalesManagement } from './seller/pages/ResellSalesManagement';
 import { Dashboard as AdminDashboard } from './admin/components/Dashboard';
 import { ProductManagementPage as AdminProductManagementPage } from './admin/components/ProductManagementPage';
 import { ProductReviewDetailPage as AdminProductReviewDetailPage } from './admin/components/ProductReviewDetailPage';
@@ -231,6 +232,7 @@ export const router = createBrowserRouter([
       { path: 'funding', Component: SellerFundingCampaign },
       { path: 'funding/new', Component: SellerFundingProjectForm },
       { path: 'resell', Component: SellerResellManagement },
+      { path: 'resell-sales', Component: SellerResellSalesManagement },
       { path: 'profile', Component: SellerBrandProfile },
     ],
   },

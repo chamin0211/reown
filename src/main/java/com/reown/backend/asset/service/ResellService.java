@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -148,6 +149,76 @@ public class ResellService {
                         .stream()
                         .map(this::toTransactionDetailResponse))
                 .toList();
+    }
+
+    public ResellTransactionDetailResponse getTransactionDetail(Long transactionId) {
+        AssetResellTransaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new IllegalArgumentException("리셀 거래를 찾을 수 없습니다. transactionId=" + transactionId));
+        return toTransactionDetailResponse(transaction);
+    }
+
+    @Transactional
+    public ResellTransactionResponse markTransactionPaid(Long transactionId, Long buyerId) {
+        AssetResellTransaction transaction = findTransactionForUpdate(transactionId);
+        transaction.markPaid(buyerId);
+        return ResellTransactionResponse.from(transaction);
+    }
+
+    @Transactional
+    public ResellTransactionResponse prepareShipment(Long transactionId, Long sellerId) {
+        AssetResellTransaction transaction = findTransactionForUpdate(transactionId);
+        validateSeller(transaction, sellerId);
+        transaction.markPreparingShipment();
+        return ResellTransactionResponse.from(transaction);
+    }
+
+    @Transactional
+    public ResellTransactionResponse shipTransaction(
+            Long transactionId,
+            Long sellerId,
+            ResellShipmentUpdateRequest request
+    ) {
+        AssetResellTransaction transaction = findTransactionForUpdate(transactionId);
+        validateSeller(transaction, sellerId);
+        String courierName = request == null ? null : request.courierName();
+        String trackingNumber = request == null ? null : request.trackingNumber();
+        transaction.markShipping(courierName, trackingNumber);
+        return ResellTransactionResponse.from(transaction);
+    }
+
+    @Transactional
+    public ResellTransactionResponse confirmPurchase(Long transactionId, Long buyerId) {
+        AssetResellTransaction transaction = findTransactionForUpdate(transactionId);
+        transaction.confirmPurchase(buyerId);
+        return ResellTransactionResponse.from(transaction);
+    }
+
+    @Transactional
+    public ResellTransactionResponse settleTransaction(Long transactionId, Long sellerId) {
+        AssetResellTransaction transaction = findTransactionForUpdate(transactionId);
+        validateSeller(transaction, sellerId);
+        transaction.settle();
+        return ResellTransactionResponse.from(transaction);
+    }
+
+    @Transactional
+    public ResellTransactionResponse cancelTransaction(
+            Long transactionId,
+            Long actorId,
+            ResellTransactionCancelRequest request
+    ) {
+        AssetResellTransaction transaction = findTransactionForUpdate(transactionId);
+        if (actorId != null) {
+            AssetResellMarket resell = findResell(transaction.getResellId());
+            boolean isBuyer = actorId.equals(transaction.getBuyerId());
+            boolean isSeller = actorId.equals(resell.getSellerId());
+            if (!isBuyer && !isSeller) {
+                throw new IllegalArgumentException("해당 거래의 구매자 또는 판매자만 취소할 수 있습니다.");
+            }
+        }
+        String reason = request == null ? null : request.reason();
+        transaction.cancel(reason);
+        return ResellTransactionResponse.from(transaction);
     }
 
     @Transactional
@@ -304,10 +375,7 @@ public class ResellService {
             throw new IllegalArgumentException("입찰 진행 중인 리셀 상품만 낙찰 처리할 수 있습니다.");
         }
 
-        AssetResellPriceOffer leadingOffer = offerRepository.findByResellIdOrderByCreatedAtDesc(resell.getResellId())
-                .stream()
-                .filter(offer -> "LEADING".equals(offer.getStatus()) || "PENDING".equals(offer.getStatus()))
-                .max(Comparator.comparing(AssetResellPriceOffer::getOfferPrice))
+        AssetResellPriceOffer leadingOffer = findLeadingOffer(resell.getResellId())
                 .orElseThrow(() -> new IllegalArgumentException("낙찰 처리할 입찰 내역이 없습니다."));
 
         leadingOffer.accept();
@@ -333,6 +401,85 @@ public class ResellService {
                 "경매가 마감되어 최고 입찰자가 낙찰되었습니다."
         ));
         return ResellTransactionResponse.from(saved);
+    }
+
+
+    /**
+     * 입찰 마감 시간이 지난 ON_SALE 리셀 상품을 자동 마감합니다.
+     *
+     * - 최고 입찰이 있으면 SOLD + 거래내역 생성
+     * - 입찰이 없으면 EXPIRED 유찰 처리
+     * - Redis 캐시 삭제 + WebSocket 이벤트 발행
+     */
+    @Transactional
+    public List<ResellAuctionCloseResultResponse> closeExpiredAuctions() {
+        LocalDateTime now = LocalDateTime.now();
+        return resellMarketRepository.findExpiredOnSaleIds(now)
+                .stream()
+                .map(resellId -> resellBidRedisService.executeWithAuctionLock(
+                        resellId,
+                        () -> closeExpiredAuctionWithLock(resellId, now)
+                ))
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    private Optional<ResellAuctionCloseResultResponse> closeExpiredAuctionWithLock(Long resellId, LocalDateTime now) {
+        AssetResellMarket resell = findResellForUpdate(resellId);
+
+        if (!"ON_SALE".equals(resell.getStatus())) {
+            return Optional.empty();
+        }
+        if (resell.getAuctionEndAt() == null || resell.getAuctionEndAt().isAfter(now)) {
+            return Optional.empty();
+        }
+
+        String previousStatus = resell.getStatus();
+        Optional<AssetResellPriceOffer> leadingOffer = findLeadingOffer(resell.getResellId());
+
+        if (leadingOffer.isEmpty()) {
+            resell.markExpired();
+            rejectAllBids(resell.getResellId());
+            resellBidRedisService.deleteAuctionState(resell.getResellId());
+            publishResellEvent(resell.getResellId(), ResellBidEventResponse.statusChanged(
+                    resell,
+                    "AUCTION_EXPIRED",
+                    "마감 시간이 지났지만 입찰 내역이 없어 유찰 처리되었습니다."
+            ));
+            return Optional.of(ResellAuctionCloseResultResponse.expired(resell.getResellId(), previousStatus));
+        }
+
+        AssetResellPriceOffer winner = leadingOffer.get();
+        winner.accept();
+        offerRepository.findByResellIdOrderByCreatedAtDesc(resell.getResellId())
+                .forEach(offer -> {
+                    if (!offer.getOfferId().equals(winner.getOfferId())) {
+                        offer.markOutbid();
+                    }
+                });
+
+        resell.markSold(winner.getOfferPrice(), winner.getBuyerId());
+        AssetResellTransaction transaction = new AssetResellTransaction(
+                resell.getResellId(),
+                winner.getBuyerId(),
+                winner.getOfferPrice(),
+                calculatePlatformFee(winner.getOfferPrice())
+        );
+        AssetResellTransaction saved = transactionRepository.save(transaction);
+        resellBidRedisService.deleteAuctionState(resell.getResellId());
+        publishResellEvent(resell.getResellId(), ResellBidEventResponse.statusChanged(
+                resell,
+                "AUCTION_AUTO_CLOSED",
+                "입찰 마감 시간이 지나 최고 입찰자가 자동 낙찰되었습니다."
+        ));
+
+        return Optional.of(ResellAuctionCloseResultResponse.sold(
+                resell.getResellId(),
+                previousStatus,
+                winner.getBuyerId(),
+                winner.getOfferPrice(),
+                saved.getTransactionId()
+        ));
     }
 
     /** 구버전 엔드포인트 호환용. 판매자 수락 대신 관리자 낙찰과 같은 의미로 처리합니다. */
@@ -461,6 +608,13 @@ public class ResellService {
                 .forEach(AssetResellPriceOffer::reject);
     }
 
+    private Optional<AssetResellPriceOffer> findLeadingOffer(Long resellId) {
+        return offerRepository.findByResellIdOrderByCreatedAtDesc(resellId)
+                .stream()
+                .filter(offer -> "LEADING".equals(offer.getStatus()) || "PENDING".equals(offer.getStatus()))
+                .max(Comparator.comparing(AssetResellPriceOffer::getOfferPrice));
+    }
+
     private int currentBidFloor(AssetResellMarket resell) {
         int highest = resell.getCurrentHighestBid() != null ? resell.getCurrentHighestBid() : 0;
         if (highest > 0) return highest;
@@ -510,6 +664,19 @@ public class ResellService {
     private void publishResellEvent(Long resellId, ResellBidEventResponse event) {
         if (resellId == null || event == null) return;
         messagingTemplate.convertAndSend("/topic/resells/" + resellId, event);
+    }
+
+    private AssetResellTransaction findTransactionForUpdate(Long transactionId) {
+        return transactionRepository.findByIdForUpdate(transactionId)
+                .orElseThrow(() -> new IllegalArgumentException("리셀 거래를 찾을 수 없습니다. transactionId=" + transactionId));
+    }
+
+    private void validateSeller(AssetResellTransaction transaction, Long sellerId) {
+        if (sellerId == null) return;
+        AssetResellMarket resell = findResell(transaction.getResellId());
+        if (resell.getSellerId() != null && !resell.getSellerId().equals(sellerId)) {
+            throw new IllegalArgumentException("해당 리셀 상품의 판매자만 처리할 수 있습니다.");
+        }
     }
 
     private void validateProductAndOption(Long productId, Long optionId) {

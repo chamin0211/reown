@@ -25,6 +25,12 @@ public class ResellController {
         return resellService.getAdminResells();
     }
 
+    /** 테스트/관리자용: 마감 시간이 지난 리셀 경매를 즉시 자동 마감 처리합니다. */
+    @PostMapping("/admin/close-expired")
+    public List<ResellAuctionCloseResultResponse> closeExpiredAuctionsNow() {
+        return resellService.closeExpiredAuctions();
+    }
+
     @PostMapping
     public ResellResponse createResell(@Valid @RequestBody ResellCreateRequest request) {
         return resellService.createResell(request);
@@ -94,6 +100,61 @@ public class ResellController {
             @RequestParam(required = false) Long sellerId
     ) {
         return resellService.acceptOffer(offerId, sellerId);
+    }
+
+    @GetMapping("/transactions/{transactionId}")
+    public ResellTransactionDetailResponse getTransactionDetail(@PathVariable Long transactionId) {
+        return resellService.getTransactionDetail(transactionId);
+    }
+
+    @PatchMapping("/transactions/{transactionId}/pay")
+    public ResellTransactionResponse markTransactionPaid(
+            @PathVariable Long transactionId,
+            @RequestParam(required = false) Long buyerId
+    ) {
+        return resellService.markTransactionPaid(transactionId, buyerId);
+    }
+
+    @PatchMapping("/transactions/{transactionId}/prepare-shipment")
+    public ResellTransactionResponse prepareShipment(
+            @PathVariable Long transactionId,
+            @RequestParam(required = false) Long sellerId
+    ) {
+        return resellService.prepareShipment(transactionId, sellerId);
+    }
+
+    @PatchMapping("/transactions/{transactionId}/ship")
+    public ResellTransactionResponse shipTransaction(
+            @PathVariable Long transactionId,
+            @RequestParam(required = false) Long sellerId,
+            @RequestBody(required = false) ResellShipmentUpdateRequest request
+    ) {
+        return resellService.shipTransaction(transactionId, sellerId, request);
+    }
+
+    @PatchMapping("/transactions/{transactionId}/confirm")
+    public ResellTransactionResponse confirmPurchase(
+            @PathVariable Long transactionId,
+            @RequestParam(required = false) Long buyerId
+    ) {
+        return resellService.confirmPurchase(transactionId, buyerId);
+    }
+
+    @PatchMapping("/transactions/{transactionId}/settle")
+    public ResellTransactionResponse settleTransaction(
+            @PathVariable Long transactionId,
+            @RequestParam(required = false) Long sellerId
+    ) {
+        return resellService.settleTransaction(transactionId, sellerId);
+    }
+
+    @PatchMapping("/transactions/{transactionId}/cancel")
+    public ResellTransactionResponse cancelTransaction(
+            @PathVariable Long transactionId,
+            @RequestParam(required = false) Long actorId,
+            @RequestBody(required = false) ResellTransactionCancelRequest request
+    ) {
+        return resellService.cancelTransaction(transactionId, actorId, request);
     }
 
     @GetMapping("/buyers/{buyerId}/offers")

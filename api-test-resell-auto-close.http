@@ -1,0 +1,18 @@
+### 리셀 자동 경매 마감 대상 즉시 처리
+# 마감 시간이 지난 ON_SALE 리셀 상품을 찾아 자동으로 SOLD 또는 EXPIRED 처리합니다.
+POST http://localhost:8080/api/resells/admin/close-expired
+
+
+### 리셀 상세 조회 - 상태 확인용
+# {resellId}를 실제 리셀 ID로 바꿔서 실행하세요.
+GET http://localhost:8080/api/resells/1
+
+
+### 리셀 입찰 내역 조회 - ACCEPTED/OUTBID 상태 확인용
+# {resellId}를 실제 리셀 ID로 바꿔서 실행하세요.
+GET http://localhost:8080/api/resells/1/offers
+
+
+### 구매자 거래 내역 조회 - 자동 낙찰 거래 생성 확인용
+# {buyerId}를 최고 입찰자 ID로 바꿔서 실행하세요.
+GET http://localhost:8080/api/resells/buyers/23/transactions

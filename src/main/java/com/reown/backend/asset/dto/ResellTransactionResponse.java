@@ -10,8 +10,18 @@ public record ResellTransactionResponse(
         Long buyerId,
         Integer resellPrice,
         Integer platformFee,
+        Integer settlementAmount,
         String status,
-        LocalDateTime createdAt
+        String courierName,
+        String trackingNumber,
+        String cancelReason,
+        LocalDateTime createdAt,
+        LocalDateTime paidAt,
+        LocalDateTime shipmentPreparedAt,
+        LocalDateTime shippedAt,
+        LocalDateTime purchaseConfirmedAt,
+        LocalDateTime settledAt,
+        LocalDateTime canceledAt
 ) {
     public static ResellTransactionResponse from(AssetResellTransaction transaction) {
         return new ResellTransactionResponse(
@@ -20,8 +30,18 @@ public record ResellTransactionResponse(
                 transaction.getBuyerId(),
                 transaction.getResellPrice(),
                 transaction.getPlatformFee(),
+                transaction.getSettlementAmount(),
                 transaction.getStatus(),
-                transaction.getCreatedAt()
+                transaction.getCourierName(),
+                transaction.getTrackingNumber(),
+                transaction.getCancelReason(),
+                transaction.getCreatedAt(),
+                transaction.getPaidAt(),
+                transaction.getShipmentPreparedAt(),
+                transaction.getShippedAt(),
+                transaction.getPurchaseConfirmedAt(),
+                transaction.getSettledAt(),
+                transaction.getCanceledAt()
         );
     }
 }

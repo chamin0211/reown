@@ -63,8 +63,18 @@ export interface ResellTransactionResponse {
   buyerId: number;
   resellPrice: number;
   platformFee: number;
+  settlementAmount: number | null;
   status: string;
+  courierName: string | null;
+  trackingNumber: string | null;
+  cancelReason: string | null;
   createdAt: string;
+  paidAt: string | null;
+  shipmentPreparedAt: string | null;
+  shippedAt: string | null;
+  purchaseConfirmedAt: string | null;
+  settledAt: string | null;
+  canceledAt: string | null;
 }
 
 export interface ResellTransactionDetailResponse extends ResellTransactionResponse {
@@ -180,4 +190,47 @@ export function getSellerResells(sellerId: number): Promise<ResellResponse[]> {
 
 export function getSellerResellTransactions(sellerId: number): Promise<ResellTransactionDetailResponse[]> {
   return api<ResellTransactionDetailResponse[]>(`/api/resells/sellers/${sellerId}/transactions`);
+}
+
+export function getResellTransactionDetail(transactionId: number): Promise<ResellTransactionDetailResponse> {
+  return api<ResellTransactionDetailResponse>(`/api/resells/transactions/${transactionId}`);
+}
+
+export function payResellTransaction(transactionId: number, buyerId?: number): Promise<ResellTransactionResponse> {
+  const suffix = buyerId ? `?buyerId=${buyerId}` : '';
+  return api<ResellTransactionResponse>(`/api/resells/transactions/${transactionId}/pay${suffix}`, { method: 'PATCH' });
+}
+
+export function prepareResellShipment(transactionId: number, sellerId?: number): Promise<ResellTransactionResponse> {
+  const suffix = sellerId ? `?sellerId=${sellerId}` : '';
+  return api<ResellTransactionResponse>(`/api/resells/transactions/${transactionId}/prepare-shipment${suffix}`, { method: 'PATCH' });
+}
+
+export function shipResellTransaction(
+  transactionId: number,
+  data: { sellerId?: number; courierName?: string; trackingNumber?: string } = {},
+): Promise<ResellTransactionResponse> {
+  const suffix = data.sellerId ? `?sellerId=${data.sellerId}` : '';
+  return api<ResellTransactionResponse>(`/api/resells/transactions/${transactionId}/ship${suffix}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ courierName: data.courierName ?? '', trackingNumber: data.trackingNumber ?? '' }),
+  });
+}
+
+export function confirmResellPurchase(transactionId: number, buyerId?: number): Promise<ResellTransactionResponse> {
+  const suffix = buyerId ? `?buyerId=${buyerId}` : '';
+  return api<ResellTransactionResponse>(`/api/resells/transactions/${transactionId}/confirm${suffix}`, { method: 'PATCH' });
+}
+
+export function settleResellTransaction(transactionId: number, sellerId?: number): Promise<ResellTransactionResponse> {
+  const suffix = sellerId ? `?sellerId=${sellerId}` : '';
+  return api<ResellTransactionResponse>(`/api/resells/transactions/${transactionId}/settle${suffix}`, { method: 'PATCH' });
+}
+
+export function cancelResellTransaction(transactionId: number, actorId?: number, reason = ''): Promise<ResellTransactionResponse> {
+  const suffix = actorId ? `?actorId=${actorId}` : '';
+  return api<ResellTransactionResponse>(`/api/resells/transactions/${transactionId}/cancel${suffix}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
 }

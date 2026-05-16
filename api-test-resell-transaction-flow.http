@@ -1,0 +1,34 @@
+### RE:OWN 리셀 거래 상태 관리 테스트
+### transactionId는 낙찰/즉시구매/자동마감 후 생성된 ID로 바꿔서 실행하세요.
+
+### 1. 거래 상세 조회
+GET http://localhost:8080/api/resells/transactions/1
+
+### 2. 구매자 결제 완료 처리
+PATCH http://localhost:8080/api/resells/transactions/1/pay?buyerId=23
+
+### 3. 셀러 배송 준비 처리
+PATCH http://localhost:8080/api/resells/transactions/1/prepare-shipment?sellerId=1
+
+### 4. 셀러 배송 중 처리
+PATCH http://localhost:8080/api/resells/transactions/1/ship?sellerId=1
+Content-Type: application/json
+
+{
+  "courierName": "CJ대한통운",
+  "trackingNumber": "123456789012"
+}
+
+### 5. 구매자 구매 확정
+PATCH http://localhost:8080/api/resells/transactions/1/confirm?buyerId=23
+
+### 6. 셀러 정산 완료
+PATCH http://localhost:8080/api/resells/transactions/1/settle?sellerId=1
+
+### 7. 거래 취소 테스트
+PATCH http://localhost:8080/api/resells/transactions/1/cancel?actorId=23
+Content-Type: application/json
+
+{
+  "reason": "테스트 취소"
+}

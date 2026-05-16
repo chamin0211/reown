@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
+import { Link } from 'react-router';
+import { Plus, RefreshCw, ShieldCheck, Trash2, Truck } from 'lucide-react';
 import { cancelResell, createPremiumResell, getSellerResells } from '../../api/resellApi';
 import type { CreatePremiumResellRequest, ResellResponse } from '../../api/resellApi';
 import { getLoginUser } from '../../auth/session';
@@ -192,6 +193,9 @@ export function ResellManagement() {
           <p className="text-gray-500 mt-2">희소 상품을 등록하면 관리자 검수 후 입찰형 리셀 마켓에 노출됩니다.</p>
         </div>
         <div className="flex gap-3">
+          <Link to="/seller/resell-sales" className="px-4 py-3 rounded-xl border border-gray-300 hover:bg-gray-50 flex items-center gap-2">
+            <Truck size={18} /> 거래/배송 관리
+          </Link>
           <button onClick={load} className="px-4 py-3 rounded-xl border border-gray-300 hover:bg-gray-50 flex items-center gap-2">
             <RefreshCw size={18} /> 새로고침
           </button>

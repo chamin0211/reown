@@ -24,16 +24,27 @@ function getMinNextBid(item: ResellResponse) {
   return getDisplayBid(item) + (item.minBidIncrement || 1000);
 }
 
-function getTimeLeft(date?: string | null) {
+function getTimeLeft(date?: string | null, status?: string | null, now = Date.now()) {
+  if (status === 'SOLD') return '거래 완료';
+  if (status === 'EXPIRED') return '입찰 종료';
+  if (status === 'WAITING') return '검수 대기';
+  if (status === 'REJECTED') return '승인 거절';
   if (!date) return '마감일 없음';
-  const diff = new Date(date).getTime() - Date.now();
-  if (diff <= 0) return '입찰 마감';
+
+  const targetTime = new Date(date).getTime();
+  if (!Number.isFinite(targetTime)) return '마감일 확인 필요';
+
+  const diff = targetTime - now;
+  if (diff <= 0) return '마감 처리 중';
+
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
   const minutes = Math.floor((diff / (1000 * 60)) % 60);
-  if (days > 0) return `${days}일 ${hours}시간 남음`;
-  if (hours > 0) return `${hours}시간 ${minutes}분 남음`;
-  return `${minutes}분 남음`;
+  const seconds = Math.floor((diff / 1000) % 60);
+
+  if (days > 0) return `${days}일 ${hours}시간 ${minutes}분 남음`;
+  if (hours > 0) return `${hours}시간 ${minutes}분 ${seconds}초 남음`;
+  return `${minutes}분 ${seconds}초 남음`;
 }
 
 function getOfferLabel(status: string) {
@@ -41,7 +52,7 @@ function getOfferLabel(status: string) {
     case 'LEADING': return '최고 입찰';
     case 'OUTBID': return '상위 입찰 발생';
     case 'ACCEPTED': return '낙찰';
-    case 'REJECTED': return '거절';
+    case 'REJECTED': return '거래 종료';
     default: return status;
   }
 }
@@ -56,6 +67,7 @@ export function ResellDetailPage() {
   const [bidPrice, setBidPrice] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
 
   const load = () => {
@@ -78,6 +90,14 @@ export function ResellDetailPage() {
   useEffect(load, [resellId, navigate]);
 
   useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!Number.isFinite(resellId)) return;
 
     return subscribeResellRealtime(
@@ -95,7 +115,7 @@ export function ResellDetailPage() {
           };
         });
 
-        if (event.type === 'BID_PLACED') {
+        if (event.type === 'BID_PLACED' || event.type === 'AUCTION_AUTO_CLOSED' || event.type === 'AUCTION_CLOSED' || event.type === 'AUCTION_EXPIRED' || event.type === 'AUCTION_SOLD') {
           getResellOffers(resellId)
             .then(setOffers)
             .catch((error) => console.error('실시간 입찰 내역 갱신 실패:', error));
@@ -238,7 +258,7 @@ export function ResellDetailPage() {
                 </div>
                 <div className="rounded-2xl border border-gray-200 p-5">
                   <p className="text-sm text-gray-500 mb-2 flex items-center gap-1"><Clock className="w-4 h-4" /> 남은 시간</p>
-                  <p className="text-2xl font-bold text-gray-900">{getTimeLeft(item.auctionEndAt)}</p>
+                  <p className="text-2xl font-bold text-gray-900">{getTimeLeft(item.auctionEndAt, item.status, now)}</p>
                 </div>
               </div>
 

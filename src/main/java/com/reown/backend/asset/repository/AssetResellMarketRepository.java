@@ -39,4 +39,11 @@ public interface AssetResellMarketRepository extends JpaRepository<AssetResellMa
     Optional<AssetResellMarket> findByIdForUpdate(@Param("resellId") Long resellId);
 
     List<AssetResellMarket> findByStatusAndAuctionEndAtBefore(String status, LocalDateTime now);
+
+    /**
+     * 자동 경매 마감 대상 ID만 먼저 조회합니다.
+     * 실제 상태 변경은 findByIdForUpdate로 다시 잠금 조회한 뒤 처리합니다.
+     */
+    @Query("select r.resellId from AssetResellMarket r where r.status = 'ON_SALE' and r.auctionEndAt is not null and r.auctionEndAt <= :now")
+    List<Long> findExpiredOnSaleIds(@Param("now") LocalDateTime now);
 }
