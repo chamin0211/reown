@@ -69,6 +69,7 @@ export interface ProductUpdateRequest {
   saleType?: ProductSaleType | string | null;
   status?: ProductStatus | string | null;
   displaySortOrder?: number | null;
+  options?: ProductOptionCreateRequest[];
 }
 
 export function getAdminProducts(status?: ProductStatus | string): Promise<ProductListResponse[]> {

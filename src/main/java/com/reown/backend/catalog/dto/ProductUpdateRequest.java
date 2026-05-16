@@ -2,6 +2,8 @@ package com.reown.backend.catalog.dto;
 
 import jakarta.validation.constraints.PositiveOrZero;
 
+import java.util.List;
+
 public record ProductUpdateRequest(
         String name,
         String thumbnailUrl,
@@ -15,6 +17,7 @@ public record ProductUpdateRequest(
         Integer maxPurchasePerUser,
         String saleType,
         String status,
-        Integer displaySortOrder
+        Integer displaySortOrder,
+        List<ProductOptionCreateRequest> options
 ) {
 }

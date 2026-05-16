@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Header } from '../components/Header';
 import { FilterSidebar } from '../components/FilterSidebar';
@@ -6,6 +6,7 @@ import { GridLayoutSwitcher } from '../components/GridLayoutSwitcher';
 import { ChevronDown, ShieldCheck } from 'lucide-react';
 import { getResells } from '../api/resellApi';
 import type { ResellResponse } from '../api/resellApi';
+import { inferProductCategory, normalizeColor, normalizeSize, parsePriceRange, type StoreFilters } from '../utils/productFilters';
 
 function getImageUrl(item: ResellResponse) {
     if (!item.thumbnailUrl) {
@@ -47,10 +48,41 @@ function sortResells(items: ResellResponse[], sortBy: string) {
     }
 }
 
+function applyResellFilters(items: ResellResponse[], filters: StoreFilters) {
+    return items.filter((item) => {
+        const selectedCategories = filters.category ?? [];
+        if (selectedCategories.length > 0 && !selectedCategories.includes(inferProductCategory({ productName: item.productName }))) {
+            return false;
+        }
+
+        const selectedSizes = filters.size ?? [];
+        if (selectedSizes.length > 0 && !selectedSizes.includes(normalizeSize(item.size))) {
+            return false;
+        }
+
+        const selectedColors = filters.color ?? [];
+        if (selectedColors.length > 0 && !selectedColors.includes(normalizeColor(item.color))) {
+            return false;
+        }
+
+        const selectedPrices = filters.price ?? [];
+        if (selectedPrices.length > 0) {
+            const matchedPrice = selectedPrices.some((range) => {
+                const { min, max } = parsePriceRange(range);
+                return item.resellPrice >= min && item.resellPrice <= max;
+            });
+            if (!matchedPrice) return false;
+        }
+
+        return true;
+    });
+}
+
 export function ResellMarketPage() {
     const [items, setItems] = useState<ResellResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [sortBy, setSortBy] = useState('latest');
+    const [filters, setFilters] = useState<StoreFilters>({});
     const [gridColumns, setGridColumns] = useState<3 | 4 | 6>(4);
 
     useEffect(() => {
@@ -65,9 +97,9 @@ export function ResellMarketPage() {
             });
     }, []);
 
-    const visibleItems = sortResells(
-        items.filter((item) => item.status !== 'DELETED'),
-        sortBy
+    const visibleItems = useMemo(
+        () => sortResells(applyResellFilters(items.filter((item) => item.status !== 'DELETED'), filters), sortBy),
+        [items, filters, sortBy]
     );
 
     const gridColsClass = {
@@ -81,7 +113,7 @@ export function ResellMarketPage() {
             <Header />
 
             <div className="pt-16 flex">
-                <FilterSidebar />
+                <FilterSidebar onFilterChange={setFilters} />
 
                 <main className="flex-1">
                     <div className="border-b border-gray-200 bg-white">

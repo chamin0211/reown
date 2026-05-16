@@ -7,8 +7,8 @@ import com.reown.backend.trade.entity.TradeOrderItem;
 public record OrderItemResponse(
         Long orderItemId,
         Long productId,
-        Long brandId,
         String productName,
+        String thumbnailUrl,
         Long optionId,
         String size,
         String color,
@@ -25,8 +25,8 @@ public record OrderItemResponse(
         return new OrderItemResponse(
                 orderItem.getOrderItemId(),
                 product.getProductId(),
-                product.getBrandId(),
                 product.getName(),
+                product.getThumbnailUrl(),
                 option.getOptionId(),
                 option.getSize(),
                 option.getColor(),

@@ -54,6 +54,24 @@ public class ProductOption {
         this.reservedQuantity = reservedQuantity != null ? reservedQuantity : 0;
     }
 
+    public void update(
+            String size,
+            String color,
+            String colorHex,
+            Integer stockQuantity,
+            Integer safetyStock,
+            Integer reservedQuantity
+    ) {
+        this.size = size;
+        this.color = color;
+        this.colorHex = colorHex;
+        this.stockQuantity = stockQuantity;
+        this.safetyStock = safetyStock;
+        if (reservedQuantity != null) {
+            this.reservedQuantity = reservedQuantity;
+        }
+    }
+
     public void decreaseStock(Integer quantity) {
         if (quantity == null || quantity <= 0) {
             throw new IllegalArgumentException("수량은 1개 이상이어야 합니다.");

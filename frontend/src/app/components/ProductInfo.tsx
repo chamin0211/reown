@@ -11,6 +11,30 @@ import { getLoginUser } from '../auth/session';
 
 type SaleType = 'FUNDING' | 'REGULAR' | 'RESELL';
 
+function normalizeOptionName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function splitOptionValue(value: string | null | undefined, fallback: string): string[] {
+  if (!value || value.trim() === '') return [fallback];
+
+  const items = value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return items.length > 0 ? items : [fallback];
+}
+
+function optionContains(value: string | null | undefined, selected: string | null, fallback: string): boolean {
+  if (!selected) return false;
+
+  return splitOptionValue(value, fallback).some(
+    (item) => normalizeOptionName(item) === normalizeOptionName(selected)
+  );
+}
+
+
 interface ProductInfoProps {
   productId: string;
   name: string;
@@ -133,12 +157,12 @@ export function ProductInfo({
       return;
     }
 
-    const selectedOption = options.filter((option) => {
-      const optionSize = option.size || 'Free';
-      const optionColor = option.color || '기본';
-
-      return optionSize === selectedSize && optionColor === selectedColor;
-    })[0];
+    const selectedOption = options.find((option) => {
+      return (
+        optionContains(option.size, selectedSize, 'Free') &&
+        optionContains(option.color, selectedColor, '기본')
+      );
+    });
 
     if (!selectedOption) {
       alert('선택한 옵션 정보를 찾을 수 없습니다.');
@@ -232,19 +256,25 @@ export function ProductInfo({
           <label className="block text-sm font-semibold text-gray-900 mb-3">
             컬러 선택
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-3 flex-wrap">
             {availableColors.map((color) => (
               <button
                 key={color.name}
+                type="button"
                 onClick={() => setSelectedColor(color.name)}
-                className={`w-12 h-12 rounded-full border-2 transition-all ${
+                className={`flex items-center gap-2 rounded-full border px-3 py-2 transition-all ${
                   selectedColor === color.name
-                    ? 'border-blue-900 scale-110'
-                    : 'border-gray-300 hover:border-gray-400'
+                    ? 'border-blue-900 bg-blue-50 text-blue-900 ring-2 ring-blue-100'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                 }`}
-                style={{ backgroundColor: color.code }}
                 title={color.name}
-              />
+              >
+                <span
+                  className="inline-block h-6 w-6 rounded-full border border-gray-300 shadow-sm"
+                  style={{ backgroundColor: color.code }}
+                />
+                <span className="text-sm font-medium">{color.name}</span>
+              </button>
             ))}
           </div>
         </div>

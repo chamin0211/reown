@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Header } from '../components/Header';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -8,6 +8,7 @@ import { AdaptiveProductCard } from '../components/AdaptiveProductCard';
 import { ChevronDown, Search } from 'lucide-react';
 import { getProducts } from '../api/productApi';
 import type { Product } from '../data/products';
+import { applyProductFilters, type StoreFilters } from '../utils/productFilters';
 
 function getProductNumber(productId: string) {
   const value = Number(productId);
@@ -71,6 +72,7 @@ export function SearchResultsPage() {
   const [gridColumns, setGridColumns] = useState<3 | 4 | 6>(4);
   const [sortBy, setSortBy] = useState('latest');
   const [products, setProducts] = useState<Product[]>([]);
+  const [filters, setFilters] = useState<StoreFilters>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -104,13 +106,15 @@ export function SearchResultsPage() {
     setSearchParams({ q: nextQuery });
   };
 
-  const searchedProducts = searchProducts(products, query).map((product) => ({
-    ...product,
-    isFunding: product.saleType === 'FUNDING',
-    remainingDays: product.remainingDays,
-  }));
+  const sortedProducts = useMemo(() => {
+    const searchedProducts = searchProducts(products, query).map((product) => ({
+      ...product,
+      isFunding: product.saleType === 'FUNDING',
+      remainingDays: product.remainingDays,
+    }));
 
-  const sortedProducts = sortProducts(searchedProducts, sortBy);
+    return sortProducts(applyProductFilters(searchedProducts, filters), sortBy);
+  }, [products, query, filters, sortBy]);
 
   const sortOptions = [
     { label: '최신순', value: 'latest' },
@@ -131,7 +135,7 @@ export function SearchResultsPage() {
         <Header />
 
         <div className="pt-16 flex">
-          <FilterSidebar />
+          <FilterSidebar onFilterChange={setFilters} />
 
           <main className="flex-1">
             <div className="border-b border-gray-200 bg-white">
@@ -216,11 +220,11 @@ export function SearchResultsPage() {
                     </div>
 
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      검색 결과가 없습니다
+                      조건에 맞는 상품이 없습니다
                     </h3>
 
                     <p className="text-gray-600 mb-6">
-                      다른 검색어를 입력해보세요.
+                      검색어 또는 필터 조건을 변경해보세요.
                     </p>
 
                     <Link

@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 const navItems = [
   { to: "/seller", label: "홈", icon: Home, end: true },
+  { to: "/", label: "쇼핑몰 메인", icon: Store, end: true },
   { to: "/seller/products", label: "상품 관리", icon: Package },
   { to: "/seller/orders", label: "주문/출고 관리", icon: ShoppingBag },
   { to: "/seller/limited-editions", label: "디자이너 한정판", icon: Sparkles },

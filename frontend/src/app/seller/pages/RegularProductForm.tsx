@@ -29,6 +29,46 @@ const initialForm: ProductFormState = {
   colorOptions: "",
 };
 
+
+const COLOR_HEX_BY_NAME: Record<string, string> = {
+  black: "#000000",
+  블랙: "#000000",
+  검정: "#000000",
+  white: "#ffffff",
+  화이트: "#ffffff",
+  ivory: "#f8f1df",
+  아이보리: "#f8f1df",
+  gray: "#808080",
+  grey: "#808080",
+  그레이: "#808080",
+  blue: "#2563eb",
+  블루: "#2563eb",
+  navy: "#1e3a8a",
+  네이비: "#1e3a8a",
+  red: "#dc2626",
+  레드: "#dc2626",
+  green: "#16a34a",
+  그린: "#16a34a",
+  beige: "#d6c4a8",
+  베이지: "#d6c4a8",
+  brown: "#8b5e3c",
+  브라운: "#8b5e3c",
+  charcoal: "#374151",
+  차콜: "#374151",
+  pink: "#f4a7b9",
+  핑크: "#f4a7b9",
+  yellow: "#facc15",
+  옐로우: "#facc15",
+  orange: "#f97316",
+  오렌지: "#f97316",
+  purple: "#7c3aed",
+  퍼플: "#7c3aed",
+};
+
+function inferColorHex(colorName: string): string {
+  return COLOR_HEX_BY_NAME[colorName.trim().toLowerCase()] ?? "#9ca3af";
+}
+
 function splitOptions(value: string): string[] {
   return value
     .split(",")
@@ -47,7 +87,7 @@ function buildOptions(form: ProductFormState): ProductOptionCreateRequest[] {
       {
         size: "Free",
         color: "기본",
-        colorHex: "#000000",
+        colorHex: inferColorHex("기본"),
         stockQuantity,
         safetyStock,
         reservedQuantity: 0,
@@ -62,7 +102,7 @@ function buildOptions(form: ProductFormState): ProductOptionCreateRequest[] {
     safeColors.map((color) => ({
       size,
       color,
-      colorHex: "#000000",
+      colorHex: inferColorHex(color),
       stockQuantity,
       safetyStock,
       reservedQuantity: 0,

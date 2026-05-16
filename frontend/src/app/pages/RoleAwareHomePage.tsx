@@ -1,17 +1,8 @@
-import { Navigate } from 'react-router';
-import { getDefaultPathByRole, getLoginUser, normalizeRole } from '../auth/session';
 import { MainPage } from './MainPage';
 
 export function RoleAwareHomePage() {
-  const loginUser = getLoginUser();
-  const role = normalizeRole(loginUser?.role);
-
-  // 비로그인 또는 일반 사용자만 사용자 메인 페이지를 볼 수 있습니다.
-  // 셀러/관리자가 로그인한 상태에서 브라우저 뒤로가기로 / 에 도착하면
-  // 사용자 메인으로 빠지지 않고 각자의 기본 화면으로 다시 보냅니다.
-  if (role === 'ADMIN' || role === 'SELLER') {
-    return <Navigate to={getDefaultPathByRole(role)} replace />;
-  }
-
+  // 셀러/관리자도 사용자 메인 페이지에서 실제 노출 상품을 확인할 수 있도록
+  // role 기반 자동 리다이렉트를 제거했습니다.
+  // 계정 전환 방지는 LoginPage에서 처리합니다.
   return <MainPage />;
 }

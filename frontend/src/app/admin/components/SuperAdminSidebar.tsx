@@ -36,6 +36,11 @@ const menuItems: MenuItem[] = [
     label: 'Dashboard', 
     path: '/admin' 
   },
+  {
+    icon: <Package size={20} />,
+    label: '쇼핑몰 메인',
+    path: '/',
+  },
   { 
     icon: <Users size={20} />, 
     label: '브랜드/셀러 관리', 
@@ -202,6 +207,9 @@ export function SuperAdminSidebar() {
   }, [location.pathname, expandedMenus]);
   
   const isActive = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/';
+    }
     if (path === '/admin') {
       return location.pathname === '/admin';
     }

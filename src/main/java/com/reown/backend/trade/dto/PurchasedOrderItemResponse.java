@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 
 public record PurchasedOrderItemResponse(
         Long orderId,
+        String orderNo,
         Long orderItemId,
         Long productId,
         String productName,
@@ -20,6 +21,12 @@ public record PurchasedOrderItemResponse(
         Integer unitPrice,
         Integer totalPrice,
         String itemStatus,
+        String orderStatus,
+        String shippingStatus,
+        String trackingNumber,
+        LocalDateTime shippedAt,
+        LocalDateTime deliveredAt,
+        String shippingAddressSnapshot,
         LocalDateTime orderedAt
 ) {
     public static PurchasedOrderItemResponse from(
@@ -30,6 +37,7 @@ public record PurchasedOrderItemResponse(
     ) {
         return new PurchasedOrderItemResponse(
                 order.getOrderId(),
+                order.getOrderNo(),
                 orderItem.getOrderItemId(),
                 product.getProductId(),
                 product.getName(),
@@ -41,6 +49,12 @@ public record PurchasedOrderItemResponse(
                 orderItem.getUnitPrice(),
                 orderItem.getQuantity() * orderItem.getUnitPrice(),
                 orderItem.getItemStatus(),
+                order.getStatus(),
+                order.getShippingStatus(),
+                order.getTrackingNumber(),
+                order.getShippedAt(),
+                order.getDeliveredAt(),
+                order.getShippingAddressSnapshot(),
                 order.getCreatedAt()
         );
     }

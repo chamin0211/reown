@@ -131,6 +131,7 @@ public class CatalogService {
                 request.status(),
                 request.displaySortOrder()
         );
+        updateOptionsIfRequested(product.getProductId(), request.options());
 
         return toProductDetailResponse(product);
     }
@@ -154,6 +155,7 @@ public class CatalogService {
                 STATUS_WAITING,
                 request.displaySortOrder()
         );
+        updateOptionsIfRequested(product.getProductId(), request.options());
 
         return toProductDetailResponse(product);
     }
@@ -223,6 +225,44 @@ public class CatalogService {
                 .toList();
 
         productOptionRepository.saveAll(productOptions);
+    }
+
+    private void updateOptionsIfRequested(Long productId, List<ProductOptionCreateRequest> requestedOptions) {
+        if (requestedOptions == null || requestedOptions.isEmpty()) {
+            return;
+        }
+
+        List<ProductOption> existingOptions = productOptionRepository.findByProductId(productId);
+
+        for (int i = 0; i < requestedOptions.size(); i++) {
+            ProductOptionCreateRequest request = requestedOptions.get(i);
+
+            Integer reservedQuantity = request.reservedQuantity() != null
+                    ? request.reservedQuantity()
+                    : 0;
+
+            if (i < existingOptions.size()) {
+                ProductOption option = existingOptions.get(i);
+                option.update(
+                        request.size(),
+                        request.color(),
+                        request.colorHex(),
+                        request.stockQuantity(),
+                        request.safetyStock(),
+                        request.reservedQuantity()
+                );
+            } else {
+                productOptionRepository.save(new ProductOption(
+                        productId,
+                        request.size(),
+                        request.color(),
+                        request.colorHex(),
+                        request.stockQuantity(),
+                        request.safetyStock(),
+                        reservedQuantity
+                ));
+            }
+        }
     }
 
     private ProductOption toProductOption(Long productId, ProductOptionCreateRequest request) {

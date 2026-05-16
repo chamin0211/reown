@@ -13,6 +13,7 @@ export interface Product {
   brandName: string;
   price: number;
   saleType: SaleType;
+  categoryName?: string | null;
   ogImageUrl: string;
   images: string[];
   availableSizes: string[];

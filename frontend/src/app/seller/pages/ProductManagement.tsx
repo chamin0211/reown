@@ -2,8 +2,78 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Plus, Search, Filter, Lock, Sparkles, RefreshCw, Pencil, Trash2, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { deleteSellerProduct, getSellerProducts, updateSellerProduct } from "../../api/sellerProductApi";
-import type { ProductListResponse, ProductUpdateRequest } from "../../api/adminProductApi";
+import { deleteSellerProduct, getSellerProduct, getSellerProducts, updateSellerProduct } from "../../api/sellerProductApi";
+import type { ProductDetailResponse, ProductListResponse, ProductUpdateRequest } from "../../api/adminProductApi";
+
+
+const COLOR_HEX_BY_NAME: Record<string, string> = {
+  black: "#000000",
+  블랙: "#000000",
+  검정: "#000000",
+  white: "#ffffff",
+  화이트: "#ffffff",
+  ivory: "#f8f1df",
+  아이보리: "#f8f1df",
+  gray: "#808080",
+  grey: "#808080",
+  그레이: "#808080",
+  blue: "#2563eb",
+  블루: "#2563eb",
+  navy: "#1e3a8a",
+  네이비: "#1e3a8a",
+  red: "#dc2626",
+  레드: "#dc2626",
+  green: "#16a34a",
+  그린: "#16a34a",
+  beige: "#d6c4a8",
+  베이지: "#d6c4a8",
+  brown: "#8b5e3c",
+  브라운: "#8b5e3c",
+  charcoal: "#374151",
+  차콜: "#374151",
+  pink: "#f4a7b9",
+  핑크: "#f4a7b9",
+  yellow: "#facc15",
+  옐로우: "#facc15",
+  orange: "#f97316",
+  오렌지: "#f97316",
+  purple: "#7c3aed",
+  퍼플: "#7c3aed",
+};
+
+function splitOptionText(value?: string | null, fallback = ""): string[] {
+  if (!value || value.trim() === "") return fallback ? [fallback] : [];
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function uniqueOptionValues(values: Array<string | null | undefined>, fallback = ""): string[] {
+  const map = new Map<string, string>();
+
+  values.forEach((value) => {
+    splitOptionText(value, fallback).forEach((item) => {
+      map.set(item.toLowerCase(), item);
+    });
+  });
+
+  return Array.from(map.values());
+}
+
+function inferColorHex(colorName: string, customHex?: string | null): string {
+  const trimmedHex = customHex?.trim();
+  const normalized = colorName.trim().toLowerCase();
+
+  // 여러 색상 옵션을 저장할 때 이전 코드에서 #000000이 일괄 저장되던 문제를 막기 위해
+  // 색상명이 블랙이 아니면 색상명 기준으로 자동 보정합니다.
+  if (trimmedHex && trimmedHex !== "#000000" && trimmedHex !== "#000") {
+    return trimmedHex;
+  }
+
+  return COLOR_HEX_BY_NAME[normalized] ?? trimmedHex ?? "#9ca3af";
+}
 
 function formatPrice(price: number) {
   return `₩${price.toLocaleString()}`;
@@ -42,9 +112,19 @@ interface ProductEditFormState {
   description: string;
   thumbnailUrl: string;
   saleType: string;
+  sizeOptions: string;
+  colorOptions: string;
+  colorHex: string;
+  stockQuantity: string;
+  safetyStock: string;
+  reservedQuantity: number;
 }
 
-function toEditForm(product: ProductListResponse): ProductEditFormState {
+function toEditForm(product: ProductDetailResponse): ProductEditFormState {
+  const primaryOption = product.options?.[0];
+  const sizes = uniqueOptionValues(product.options?.map((option) => option.size) ?? [], "Free");
+  const colors = uniqueOptionValues(product.options?.map((option) => option.color) ?? [], "기본");
+
   return {
     productId: product.productId,
     name: product.name ?? "",
@@ -53,6 +133,15 @@ function toEditForm(product: ProductListResponse): ProductEditFormState {
     description: product.description ?? "",
     thumbnailUrl: product.thumbnailUrl ?? "",
     saleType: product.saleType || "NORMAL",
+    sizeOptions: sizes.join(", "),
+    colorOptions: colors.join(", "),
+    // 컬러 코드는 기본값을 비워둡니다.
+    // 비워둔 상태로 저장하면 컬러 옵션명(예: 블루, 화이트, 아이보리)을 기준으로 자동 매핑됩니다.
+    // 사용자가 단일 색상에 대해 직접 HEX 값을 넣고 싶을 때만 입력하도록 합니다.
+    colorHex: "",
+    stockQuantity: String(primaryOption?.stockQuantity ?? 0),
+    safetyStock: primaryOption?.safetyStock == null ? "" : String(primaryOption.safetyStock),
+    reservedQuantity: primaryOption?.reservedQuantity ?? 0,
   };
 }
 
@@ -64,6 +153,7 @@ export function ProductManagement() {
   const [products, setProducts] = useState<ProductListResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [editForm, setEditForm] = useState<ProductEditFormState | null>(null);
@@ -113,11 +203,26 @@ export function ProductManagement() {
     };
   }, [products]);
 
+  const handleOpenEdit = async (product: ProductListResponse) => {
+    try {
+      setEditingProductId(product.productId);
+      const detail = await getSellerProduct(brandId, product.productId);
+      setEditForm(toEditForm(detail));
+    } catch (error) {
+      console.error("상품 상세 조회 실패:", error);
+      alert(error instanceof Error ? error.message : "상품 상세 정보를 불러오지 못했습니다.");
+    } finally {
+      setEditingProductId(null);
+    }
+  };
+
   const handleEditSubmit = async () => {
     if (!editForm) return;
 
     const trimmedName = editForm.name.trim();
     const price = Number(editForm.price);
+    const stockQuantity = Number(editForm.stockQuantity);
+    const safetyStock = editForm.safetyStock.trim() === "" ? null : Number(editForm.safetyStock);
 
     if (!trimmedName) {
       alert("상품명을 입력해주세요.");
@@ -129,6 +234,20 @@ export function ProductManagement() {
       return;
     }
 
+    if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
+      alert("재고 수량은 0개 이상 정수로 입력해주세요.");
+      return;
+    }
+
+    if (safetyStock !== null && (!Number.isInteger(safetyStock) || safetyStock < 0)) {
+      alert("안전 재고 수량은 0개 이상 정수로 입력해주세요.");
+      return;
+    }
+
+    const sizes = splitOptionText(editForm.sizeOptions, "Free");
+    const colors = splitOptionText(editForm.colorOptions, "기본");
+    const customColorHex = editForm.colorHex.trim() || null;
+
     const payload: ProductUpdateRequest = {
       name: trimmedName,
       price,
@@ -136,6 +255,16 @@ export function ProductManagement() {
       description: editForm.description.trim() || null,
       thumbnailUrl: editForm.thumbnailUrl.trim() || null,
       saleType: editForm.saleType || "NORMAL",
+      options: sizes.flatMap((size) =>
+        colors.map((color) => ({
+          size,
+          color,
+          colorHex: colors.length === 1 ? inferColorHex(color, customColorHex) : inferColorHex(color),
+          stockQuantity,
+          safetyStock,
+          reservedQuantity: editForm.reservedQuantity,
+        }))
+      ),
     };
 
     try {
@@ -338,11 +467,12 @@ export function ProductManagement() {
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() => setEditForm(toEditForm(product))}
+                            onClick={() => handleOpenEdit(product)}
                             className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            disabled={editingProductId === product.productId}
                           >
                             <Pencil className="h-4 w-4" />
-                            수정
+                            {editingProductId === product.productId ? "불러오는 중" : "수정"}
                           </button>
                           <button
                             type="button"
@@ -434,6 +564,69 @@ export function ProductManagement() {
                 </select>
               </div>
 
+              <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900">재고 및 옵션 정보</h3>
+                  <p className="mt-1 text-xs text-gray-500">사이즈/컬러는 쉼표로 여러 개 입력할 수 있습니다. 예: S, M, L / 블랙, 아이보리</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">재고 수량</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.stockQuantity}
+                      onChange={(e) => setEditForm({ ...editForm, stockQuantity: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">안전 재고 수량</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.safetyStock}
+                      onChange={(e) => setEditForm({ ...editForm, safetyStock: e.target.value })}
+                      placeholder="예: 5"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">사이즈 옵션</label>
+                    <input
+                      value={editForm.sizeOptions}
+                      onChange={(e) => setEditForm({ ...editForm, sizeOptions: e.target.value })}
+                      placeholder="예: M, L, Free"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">컬러 옵션</label>
+                    <input
+                      value={editForm.colorOptions}
+                      onChange={(e) => setEditForm({ ...editForm, colorOptions: e.target.value })}
+                      placeholder="예: 블랙, 아이보리"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">컬러 코드</label>
+                    <p className="mb-2 text-xs text-gray-500">여러 색상을 입력하면 색상명 기준으로 자동 컬러 코드가 저장됩니다. 단일 색상만 직접 코드 지정이 가능합니다.</p>
+                    <input
+                      value={editForm.colorHex}
+                      onChange={(e) => setEditForm({ ...editForm, colorHex: e.target.value })}
+                      placeholder="단일 색상일 때만 직접 지정합니다. 예: #2563eb"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">상품 설명</label>
                 <textarea
@@ -445,7 +638,7 @@ export function ProductManagement() {
               </div>
 
               <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                셀러가 상품 기본 정보를 수정하면 기존 판매중 상품도 다시 <strong>승인 대기</strong> 상태가 됩니다. 관리자 승인 후 사용자 상품 목록에 다시 노출됩니다.
+                셀러가 상품 기본 정보, 재고, 옵션을 수정하면 기존 판매중 상품도 다시 <strong>승인 대기</strong> 상태가 됩니다. 관리자 승인 후 사용자 상품 목록에 다시 노출됩니다.
               </div>
             </div>
 

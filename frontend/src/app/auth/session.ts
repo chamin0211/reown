@@ -129,7 +129,7 @@ export function getSellerBrandName(): string | null {
 export function getDefaultPathByRole(role?: string | null): string {
   const normalizedRole = normalizeRole(role);
 
-  if (normalizedRole === 'ADMIN') return '/admin/products';
+  if (normalizedRole === 'ADMIN') return '/admin';
   if (normalizedRole === 'SELLER') return '/seller';
 
   return '/';

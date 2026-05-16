@@ -3,11 +3,11 @@ import { api } from './client';
 export interface OrderItemResponse {
     orderItemId: number;
     productId: number;
-    brandId?: number | null;
     productName: string;
+    thumbnailUrl: string | null;
     optionId: number;
-    size: string;
-    color: string;
+    size: string | null;
+    color: string | null;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
@@ -19,7 +19,7 @@ export interface OrderResponse {
     userId: number;
     orderNo: string;
     totalPaymentAmount: number;
-    shippingAddressSnapshot: string;
+    shippingAddressSnapshot: string | null;
     status: string;
     shippingStatus: string;
     trackingNumber: string | null;
@@ -49,6 +49,10 @@ export function createOrder(data: {
     });
 }
 
+export function getOrder(orderId: number): Promise<OrderResponse> {
+    return api<OrderResponse>(`/api/orders/${orderId}`);
+}
+
 export function mockPayment(data: {
     orderId: number;
     paymentMethod: string;
@@ -61,24 +65,31 @@ export function mockPayment(data: {
 
 export interface PurchasedOrderItemResponse {
     orderId: number;
+    orderNo: string;
     orderItemId: number;
     productId: number;
-    brandId?: number | null;
     productName: string;
     thumbnailUrl: string | null;
     optionId: number;
-    size: string;
-    color: string;
+    size: string | null;
+    color: string | null;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
     itemStatus: string;
+    orderStatus: string;
+    shippingStatus: string;
+    trackingNumber: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+    shippingAddressSnapshot: string | null;
     orderedAt: string;
 }
 
 export function getPurchasedOrderItems(userId: number): Promise<PurchasedOrderItemResponse[]> {
     return api<PurchasedOrderItemResponse[]>(`/api/orders/users/${userId}/items`);
 }
+
 export interface SellerOrderItemResponse {
     orderId: number;
     orderNo: string;
@@ -93,7 +104,6 @@ export interface SellerOrderItemResponse {
     deliveredAt: string | null;
     orderItemId: number;
     productId: number;
-    brandId?: number | null;
     productName: string;
     thumbnailUrl: string | null;
     brandId: number;
@@ -144,7 +154,6 @@ export function deliverSellerOrder(orderId: number, brandId: number): Promise<Or
         method: 'PATCH',
     });
 }
-
 
 export function getAdminOrders(): Promise<OrderResponse[]> {
     return api<OrderResponse[]>('/api/orders/admin');
