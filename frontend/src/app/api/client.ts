@@ -1,5 +1,5 @@
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
-const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
+export const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;

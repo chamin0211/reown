@@ -59,9 +59,10 @@ export function MainPage() {
   const fundingProducts = products.filter((p) => p.saleType === 'FUNDING').slice(0, 3);
 
   const regularProducts = products.filter((p) => p.saleType === 'REGULAR');
+  const designerLimitedProducts = products.filter((p) => p.saleType === 'DESIGNER_LIMITED');
 
-  const designerStoreProducts = regularProducts.slice(0, 3);
-  const brandStoreProducts = regularProducts.slice(3, 6);
+  const designerStoreProducts = designerLimitedProducts.slice(0, 3);
+  const brandStoreProducts = regularProducts.slice(0, 3);
 
   const resellProducts = products.filter((p) => p.saleType === 'RESELL').slice(0, 3);
 

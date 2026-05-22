@@ -1,8 +1,9 @@
-export type AppRole = 'USER' | 'SELLER' | 'ADMIN' | 'BRAND_SELLER' | 'DESIGNER';
+export type AppRole = 'USER' | 'SELLER' | 'SELLER_PENDING' | 'ADMIN_PENDING' | 'ADMIN' | 'MASTER' | 'BRAND_SELLER' | 'DESIGNER';
 
 export interface LoginUser {
   userId: number;
-  email: string;
+  loginId?: string;
+  email?: string;
   nickname: string;
   role: AppRole | string;
   brandId?: number | null;
@@ -28,8 +29,6 @@ function removeLegacyPersistentSession(): void {
   const storage = getLocalStorage();
   if (!storage) return;
 
-  // 이전 패치에서는 로그인 정보를 localStorage에 저장해서 브라우저를 껐다 켜도
-  // 셀러/관리자 로그인 상태가 계속 남았습니다. 이제 로그인은 sessionStorage만 사용합니다.
   storage.removeItem(LOGIN_USER_KEY);
   storage.removeItem(SELLER_BRAND_ID_KEY);
   storage.removeItem(SELLER_BRAND_NAME_KEY);
@@ -49,7 +48,10 @@ export function normalizeRole(role?: string | null): AppRole | null {
   if (upperRole === 'BRAND_SELLER') return 'SELLER';
   if (upperRole === 'DESIGNER') return 'SELLER';
   if (upperRole === 'SELLER') return 'SELLER';
+  if (upperRole === 'SELLER_PENDING') return 'SELLER_PENDING';
+  if (upperRole === 'MASTER') return 'MASTER';
   if (upperRole === 'ADMIN') return 'ADMIN';
+  if (upperRole === 'ADMIN_PENDING') return 'ADMIN_PENDING';
   if (upperRole === 'USER') return 'USER';
 
   return null;
@@ -60,7 +62,8 @@ export function isSellerRole(role?: string | null): boolean {
 }
 
 export function isAdminRole(role?: string | null): boolean {
-  return normalizeRole(role) === 'ADMIN';
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === 'ADMIN' || normalizedRole === 'MASTER';
 }
 
 export function canUseSellerCenter(role?: string | null): boolean {
@@ -68,7 +71,8 @@ export function canUseSellerCenter(role?: string | null): boolean {
 }
 
 export function canUseAdminDashboard(role?: string | null): boolean {
-  return normalizeRole(role) === 'ADMIN';
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === 'ADMIN' || normalizedRole === 'MASTER';
 }
 
 export function getLoginUser(): LoginUser | null {
@@ -89,7 +93,6 @@ export function saveLoginUser(user: LoginUser): void {
   const storage = getSessionStorage();
   if (!storage) return;
 
-  // 기존 셀러/관리자 정보가 남아 있으면 다른 계정으로 로그인할 때 brandId가 섞일 수 있어서 먼저 정리합니다.
   storage.removeItem(SELLER_BRAND_ID_KEY);
   storage.removeItem(SELLER_BRAND_NAME_KEY);
   storage.setItem(LOGIN_USER_KEY, JSON.stringify(user));
@@ -129,8 +132,10 @@ export function getSellerBrandName(): string | null {
 export function getDefaultPathByRole(role?: string | null): string {
   const normalizedRole = normalizeRole(role);
 
-  if (normalizedRole === 'ADMIN') return '/admin';
+  if (normalizedRole === 'ADMIN' || normalizedRole === 'MASTER') return '/admin';
+  if (normalizedRole === 'ADMIN_PENDING') return '/admin/pending';
   if (normalizedRole === 'SELLER') return '/seller';
+  if (normalizedRole === 'SELLER_PENDING') return '/seller/pending';
 
   return '/';
 }

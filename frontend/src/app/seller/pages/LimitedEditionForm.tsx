@@ -1,126 +1,314 @@
-import { useState, useMemo } from "react";
-import { ChevronLeft, Sparkles, Plus, X, ImageIcon, Save, Award, Edit3, Package, Calendar } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
+import { Award, ChevronLeft, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
-import { DayPicker } from "react-day-picker";
-import "react-day-picker/dist/style.css";
+import { createSellerProduct } from "../../api/sellerProductApi";
+import type { ProductOptionCreateRequest } from "../../api/adminProductApi";
+import { ImageUploadField } from "../../components/ImageUploadField";
 
 interface SizeOption {
   id: string;
   size: string;
-  quantity: number;
+  quantity: string;
+}
+
+interface LimitedEditionFormState {
+  name: string;
+  price: string;
+  categoryName: string;
+  description: string;
+  thumbnailUrl: string;
+  material: string;
+  releaseDate: string;
+  colorOptions: string;
+  safetyStock: string;
+  editionStory: string;
+  designerNote: string;
+}
+
+const initialForm: LimitedEditionFormState = {
+  name: "",
+  price: "",
+  categoryName: "",
+  description: "",
+  thumbnailUrl: "",
+  material: "",
+  releaseDate: "",
+  colorOptions: "",
+  safetyStock: "1",
+  editionStory: "",
+  designerNote: "",
+};
+
+const initialSizes: SizeOption[] = [{ id: "size-1", size: "Free", quantity: "1" }];
+
+const COLOR_HEX_BY_NAME: Record<string, string> = {
+  black: "#000000",
+  블랙: "#000000",
+  검정: "#000000",
+  white: "#ffffff",
+  화이트: "#ffffff",
+  ivory: "#f8f1df",
+  아이보리: "#f8f1df",
+  gray: "#808080",
+  grey: "#808080",
+  그레이: "#808080",
+  blue: "#2563eb",
+  블루: "#2563eb",
+  navy: "#1e3a8a",
+  네이비: "#1e3a8a",
+  red: "#dc2626",
+  레드: "#dc2626",
+  green: "#16a34a",
+  그린: "#16a34a",
+  beige: "#d6c4a8",
+  베이지: "#d6c4a8",
+  brown: "#8b5e3c",
+  브라운: "#8b5e3c",
+  charcoal: "#374151",
+  차콜: "#374151",
+  pink: "#f4a7b9",
+  핑크: "#f4a7b9",
+  yellow: "#facc15",
+  옐로우: "#facc15",
+  orange: "#f97316",
+  오렌지: "#f97316",
+  purple: "#7c3aed",
+  퍼플: "#7c3aed",
+};
+
+function inferColorHex(colorName: string): string {
+  return COLOR_HEX_BY_NAME[colorName.trim().toLowerCase()] ?? "#9ca3af";
+}
+
+function splitOptions(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function buildOptions(sizeOptions: SizeOption[], colorText: string, safetyStockText: string): ProductOptionCreateRequest[] {
+  const colors = splitOptions(colorText);
+  const safeColors = colors.length > 0 ? colors : ["기본"];
+  const safetyStock = Number(safetyStockText || 0);
+
+  return sizeOptions.flatMap((sizeOption) => {
+    const size = sizeOption.size.trim() || "Free";
+    const stockQuantity = Number(sizeOption.quantity || 0);
+
+    return safeColors.map((color) => ({
+      size,
+      color,
+      colorHex: inferColorHex(color),
+      stockQuantity,
+      safetyStock,
+      reservedQuantity: 0,
+    }));
+  });
+}
+
+function buildDescription(form: LimitedEditionFormState, totalEditions: number): string {
+  const sections = [
+    form.description.trim(),
+    "",
+    "[디자이너 한정판 정보]",
+    `총 한정 수량: ${totalEditions.toLocaleString()}개`,
+    form.material.trim() ? `소재/제작 방식: ${form.material.trim()}` : null,
+    form.releaseDate ? `발매 예정일: ${form.releaseDate}` : null,
+    form.editionStory.trim() ? `컬렉션 스토리: ${form.editionStory.trim()}` : null,
+    form.designerNote.trim() ? `디자이너 코멘트: ${form.designerNote.trim()}` : null,
+  ].filter((item): item is string => typeof item === "string");
+
+  return sections.join("\n").trim();
 }
 
 export function LimitedEditionForm() {
-  const { brandId } = useAuth();
-  const [sizeOptions, setSizeOptions] = useState<SizeOption[]>([
-    { id: "1", size: "", quantity: 0 }
-  ]);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [showCalendar, setShowCalendar] = useState(false);
+  const navigate = useNavigate();
+  const { brandId, roleType } = useAuth();
+  const [form, setForm] = useState<LimitedEditionFormState>(initialForm);
+  const [sizeOptions, setSizeOptions] = useState<SizeOption[]>(initialSizes);
+  const [submitting, setSubmitting] = useState(false);
 
-  // 등록 가능 횟수 (실제로는 API에서 가져와야 함)
-  const availableRegistrations = 5;
+  const isDesigner = roleType === "DESIGNER";
 
-  // 오늘 날짜 (최소 선택 가능 날짜)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // 사이즈별 수량 합계 자동 계산
   const totalEditions = useMemo(() => {
-    return sizeOptions.reduce((sum, option) => sum + (option.quantity || 0), 0);
+    return sizeOptions.reduce((sum, option) => {
+      const quantity = Number(option.quantity || 0);
+      return sum + (Number.isFinite(quantity) && quantity > 0 ? quantity : 0);
+    }, 0);
   }, [sizeOptions]);
 
+  const handleChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const updateSizeOption = (id: string, field: keyof Omit<SizeOption, "id">, value: string) => {
+    setSizeOptions((prev) =>
+      prev.map((option) => (option.id === id ? { ...option, [field]: value } : option))
+    );
+  };
+
   const addSizeOption = () => {
-    const newSize: SizeOption = {
-      id: Date.now().toString(),
-      size: "",
-      quantity: 0
-    };
-    setSizeOptions([...sizeOptions, newSize]);
+    setSizeOptions((prev) => [...prev, { id: `size-${Date.now()}`, size: "", quantity: "1" }]);
   };
 
   const removeSizeOption = (id: string) => {
-    if (sizeOptions.length > 1) {
-      setSizeOptions(sizeOptions.filter(option => option.id !== id));
+    setSizeOptions((prev) => (prev.length > 1 ? prev.filter((option) => option.id !== id) : prev));
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isDesigner) {
+      alert("관리자에게 디자이너로 승인된 셀러만 한정판을 등록할 수 있습니다.");
+      return;
+    }
+
+    const price = Number(form.price);
+    const safetyStock = Number(form.safetyStock || 0);
+
+    if (!form.name.trim()) {
+      alert("한정판 상품명을 입력해주세요.");
+      return;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      alert("판매가격을 올바르게 입력해주세요.");
+      return;
+    }
+
+    if (!form.thumbnailUrl.trim()) {
+      alert("대표 이미지를 업로드해주세요.");
+      return;
+    }
+
+    if (totalEditions <= 0) {
+      alert("한정 수량을 1개 이상 입력해주세요.");
+      return;
+    }
+
+    if (!Number.isInteger(safetyStock) || safetyStock < 0) {
+      alert("안전 재고 수량은 0개 이상 정수로 입력해주세요.");
+      return;
+    }
+
+    const hasInvalidQuantity = sizeOptions.some((option) => {
+      const quantity = Number(option.quantity || 0);
+      return !Number.isInteger(quantity) || quantity < 0;
+    });
+
+    if (hasInvalidQuantity) {
+      alert("사이즈별 한정 수량은 0개 이상 정수로 입력해주세요.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const savedProduct = await createSellerProduct({
+        brandId,
+        name: form.name.trim(),
+        thumbnailUrl: form.thumbnailUrl.trim(),
+        price,
+        categoryName: form.categoryName || null,
+        description: buildDescription(form, totalEditions),
+        saleType: "DESIGNER_LIMITED",
+        maxPurchasePerUser: 1,
+        displaySortOrder: 0,
+        options: buildOptions(sizeOptions, form.colorOptions, form.safetyStock),
+      });
+
+      alert(
+        `디자이너 한정판이 등록되었습니다.\n현재 상태: ${savedProduct.status}\n관리자 승인 후 디자이너 스토어에 노출됩니다.`
+      );
+      navigate("/seller/limited-editions");
+    } catch (error) {
+      console.error("디자이너 한정판 등록 실패:", error);
+      alert(error instanceof Error ? error.message : "디자이너 한정판 등록에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const updateSizeOption = (id: string, field: keyof SizeOption, value: string | number) => {
-    setSizeOptions(sizeOptions.map(option =>
-      option.id === id ? { ...option, [field]: value } : option
-    ));
-  };
+  if (!isDesigner) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto">
+        <button
+          type="button"
+          onClick={() => navigate("/seller/limited-editions")}
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-6"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          디자이너 한정판으로 돌아가기
+        </button>
+
+        <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-10 text-center">
+          <Sparkles className="mx-auto mb-4 h-14 w-14 text-amber-500" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">디자이너 승인 필요</h1>
+          <p className="text-gray-700">
+            이 메뉴는 관리자가 디자이너 브랜드로 승인한 셀러만 사용할 수 있습니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      {/* Header */}
       <div className="mb-8">
-        <a href="/seller/limited-editions" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4">
+        <button
+          type="button"
+          onClick={() => navigate("/seller/limited-editions")}
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
+        >
           <ChevronLeft className="w-4 h-4" />
           한정판 목록으로 돌아가기
-        </a>
+        </button>
+
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-            디자이너 한정판 등록
-          </h1>
-          <span className="px-3 py-1 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 text-sm font-medium rounded-full border border-amber-300">
+          <h1 className="text-2xl font-bold text-gray-900">디자이너 한정판 등록</h1>
+          <span className="rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
             디자이너 전용
           </span>
         </div>
-        <p className="text-gray-500 mt-1">특별한 에디션을 세상에 선보이세요</p>
+        <p className="mt-1 text-gray-500">
+          관리자 승인 후 소비자 디자이너 스토어에 노출될 고가 한정판 상품을 등록합니다.
+        </p>
       </div>
 
-      <form className="space-y-8">
-        {/* Hidden fields */}
+      <form onSubmit={handleSubmit} className="space-y-8">
         <input type="hidden" name="brand_id" value={brandId} />
-        <input type="hidden" name="sale_type" value="limited_edition" />
-        <input type="hidden" name="total_editions" value={totalEditions} />
+        <input type="hidden" name="sale_type" value="DESIGNER_LIMITED" />
 
-        {/* Info Banner */}
-        <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 rounded-xl p-6 border-2 border-amber-200">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg shadow-lg">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-2">디자이너 한정판이란?</h3>
-              <ul className="text-sm text-gray-700 space-y-1">
-                <li>✨ 에디션 넘버링으로 희소성과 가치 보장</li>
-                <li>✨ 디자이너 친필 서명으로 진품 인증</li>
-                <li>✨ 특별 제작 패키지로 프리미엄 경험 제공</li>
-                <li>✨ 컬렉터블 아이템으로 브랜드 가치 상승</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Basic Product Information */}
-        <div className="bg-white rounded-xl p-8 border-2 border-amber-200">
-          <div className="flex items-center gap-2 mb-6">
-            <Award className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-bold text-gray-900">한정판 기본 정보</h2>
+        <div className="rounded-xl border-2 border-amber-200 bg-white p-8">
+          <div className="mb-6 flex items-center gap-2">
+            <Award className="h-5 w-5 text-amber-600" />
+            <h2 className="text-lg font-bold text-gray-900">기본 정보</h2>
           </div>
 
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                한정판 컬렉션명 <span className="text-red-500">*</span>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                한정판 상품명 <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 name="name"
                 required
-                placeholder="예: 2024 Spring Heritage Collection"
-                className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="예: 2026 Atelier Handcrafted Leather Jacket"
+                className="w-full rounded-lg border border-amber-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
               />
-              <p className="text-xs text-gray-500 mt-1.5">컬렉터들의 관심을 끌 수 있는 특별한 이름을 지어주세요</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   판매가격 <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -129,347 +317,223 @@ export function LimitedEditionForm() {
                     name="price"
                     required
                     min="0"
+                    value={form.price}
+                    onChange={handleChange}
                     placeholder="0"
-                    className="w-full px-4 py-3 pr-12 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-amber-300 px-4 py-3 pr-12 focus:border-transparent focus:ring-2 focus:ring-amber-500"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">원</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   카테고리 <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="category"
+                  name="categoryName"
                   required
-                  className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  value={form.categoryName}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-amber-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
                 >
                   <option value="">선택하세요</option>
-                  <option value="outer">아우터</option>
-                  <option value="top">상의</option>
-                  <option value="bottom">하의</option>
-                  <option value="accessory">악세서리</option>
-                  <option value="bag">가방</option>
-                  <option value="shoes">신발</option>
+                  <option value="아우터">아우터</option>
+                  <option value="상의">상의</option>
+                  <option value="하의">하의</option>
+                  <option value="원피스">원피스</option>
+                  <option value="가방">가방</option>
+                  <option value="신발">신발</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">발매 예정일</label>
+                <input
+                  type="date"
+                  name="releaseDate"
+                  value={form.releaseDate}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-amber-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                />
               </div>
             </div>
 
+            <ImageUploadField
+              label="대표 이미지 *"
+              value={form.thumbnailUrl}
+              onChange={(url) => setForm((prev) => ({ ...prev, thumbnailUrl: url }))}
+              helperText="등록된 이미지는 승인 후 디자이너 스토어 상품 카드와 상세 페이지에 표시됩니다."
+              previewClassName="h-64"
+            />
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                컬렉션 스토리 <span className="text-red-500">*</span>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                상품 설명 <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="description"
                 required
-                rows={6}
-                placeholder="이 한정판의 특별한 스토리, 디자인 철학, 제작 과정의 특별함을 고객에게 전달하세요"
-                className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                rows={5}
+                value={form.description}
+                onChange={handleChange}
+                placeholder="상품의 특징, 핏, 제작 방식, 희소성 등을 설명해주세요."
+                className="w-full resize-none rounded-lg border border-amber-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                컬렉션 이미지 <span className="text-red-500">*</span>
-              </label>
-              <div className="border-2 border-dashed border-amber-300 rounded-lg p-8 text-center hover:border-amber-400 transition-colors cursor-pointer bg-amber-50">
-                <ImageIcon className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                <p className="text-sm text-gray-600 mb-1">클릭하거나 이미지를 드래그하세요</p>
-                <p className="text-xs text-gray-500">최대 10장, JPG/PNG 형식, 각 5MB 이하</p>
-                <input type="file" name="images" multiple accept="image/*" className="hidden" />
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Release Date & Time */}
-        <div className="bg-white rounded-xl p-8 border-2 border-amber-200">
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-bold text-gray-900">발매 일시</h2>
+        <div className="rounded-xl border-2 border-amber-200 bg-white p-8">
+          <div className="mb-6 flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-amber-600" />
+            <h2 className="text-lg font-bold text-gray-900">한정판 옵션</h2>
           </div>
 
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                발매 날짜 및 시간 <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="relative">
-                  <div
-                    onClick={() => setShowCalendar(!showCalendar)}
-                    className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer bg-white flex items-center justify-between"
-                  >
-                    <span className={selectedDate ? "text-gray-900" : "text-gray-400"}>
-                      {selectedDate ? format(selectedDate, 'yyyy년 MM월 dd일', { locale: ko }) : '날짜를 선택하세요'}
-                    </span>
-                    <Calendar className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <input
-                    type="hidden"
-                    name="release_date"
-                    value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">발매 날짜 (년/월/일)</p>
-                  
-                  {showCalendar && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-10" 
-                        onClick={() => setShowCalendar(false)}
-                      />
-                      <div className="absolute z-20 mt-2 bg-white rounded-lg shadow-2xl border-2 border-amber-300 p-4">
-                        <DayPicker
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={(date) => {
-                            setSelectedDate(date);
-                            setShowCalendar(false);
-                          }}
-                          disabled={{ before: today }}
-                          fromMonth={today}
-                          locale={ko}
-                          modifiersClassNames={{
-                            selected: 'bg-amber-500 text-white hover:bg-amber-600',
-                            today: 'font-bold text-amber-600'
-                          }}
-                          className="rdp-custom"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div>
-                  <input
-                    type="time"
-                    name="release_time"
-                    placeholder="00:00"
-                    className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">발매 시간 (미입력 시 00시00분 발매)</p>
-                </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-800">총 한정 수량</span>
+                <span className="text-2xl font-bold text-amber-700">{totalEditions.toLocaleString()}개</span>
               </div>
-              <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
-                <p className="text-sm text-gray-700">
-                  💡 <strong>발매 시간 팁:</strong> 오후 8시~10시 사이가 가장 많은 고객이 접속하는 시간대입니다.
-                </p>
-              </div>
+              <p className="mt-1 text-xs text-gray-600">
+                사이즈별 수량 합계가 소비자에게 판매 가능한 전체 한정 수량이 됩니다.
+              </p>
             </div>
-          </div>
-        </div>
 
-        {/* Size & Quantity Management */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-8 border-2 border-amber-300">
-          <div className="flex items-center gap-2 mb-6">
-            <Package className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-bold text-gray-900">사이즈 및 수량 설정</h2>
-          </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700">사이즈별 한정 수량</label>
+                <button
+                  type="button"
+                  onClick={addSizeOption}
+                  className="inline-flex items-center gap-1 rounded-lg border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  사이즈 추가
+                </button>
+              </div>
 
-          <div className="bg-white rounded-lg p-6 border border-amber-300">
-            <div className="space-y-3 mb-4">
-              {sizeOptions.map((option, index) => (
-                <div key={option.id} className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 text-amber-700 font-bold flex-shrink-0">
-                    {index + 1}
-                  </div>
+              {sizeOptions.map((option) => (
+                <div key={option.id} className="grid grid-cols-[1fr_1fr_auto] gap-3">
                   <input
                     type="text"
-                    placeholder="사이즈 (예: S, M, L, XL 또는 250, 260)"
                     value={option.size}
-                    onChange={(e) => updateSizeOption(option.id, "size", e.target.value)}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    onChange={(event) => updateSizeOption(option.id, "size", event.target.value)}
+                    placeholder="예: S, M, L, Free"
+                    className="rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
                   />
-                  <div className="relative w-40">
-                    <input
-                      type="number"
-                      placeholder="수량"
-                      min="0"
-                      value={option.quantity || ""}
-                      onChange={(e) => updateSizeOption(option.id, "quantity", parseInt(e.target.value) || 0)}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">개</span>
-                  </div>
-                  {sizeOptions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeSizeOption(option.id)}
-                      className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  )}
+                  <input
+                    type="number"
+                    min="0"
+                    value={option.quantity}
+                    onChange={(event) => updateSizeOption(option.id, "quantity", event.target.value)}
+                    placeholder="수량"
+                    className="rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeSizeOption(option.id)}
+                    disabled={sizeOptions.length <= 1}
+                    className="rounded-lg border border-gray-300 px-3 text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="사이즈 삭제"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={addSizeOption}
-              className="flex items-center gap-2 px-4 py-2.5 text-amber-600 hover:text-amber-700 hover:bg-amber-100 rounded-lg transition-colors font-medium"
-            >
-              <Plus className="w-5 h-5" />
-              사이즈 추가
-            </button>
-
-            {/* Total Count Display */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-amber-100 to-orange-100 rounded-lg border-2 border-amber-300">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">총 에디션 수량 (자동 계산)</span>
-                <span className="text-2xl font-bold text-amber-700">{totalEditions}개</span>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">색상 옵션</label>
+                <input
+                  type="text"
+                  name="colorOptions"
+                  value={form.colorOptions}
+                  onChange={handleChange}
+                  placeholder="예: 블랙, 아이보리, 네이비"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">여러 색상은 쉼표로 구분하세요.</p>
               </div>
-              <p className="text-xs text-gray-600 mt-2">
-                각 제품에는 1/{totalEditions}, 2/{totalEditions} 형태로 에디션 넘버가 부여됩니다
-              </p>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">안전 재고</label>
+                <input
+                  type="number"
+                  name="safetyStock"
+                  min="0"
+                  value={form.safetyStock}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Limited Edition Exclusive Settings */}
-        <div className="bg-white rounded-xl p-8 border-2 border-amber-200">
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-bold text-gray-900">한정판 전용 설정</h2>
+        <div className="rounded-xl border-2 border-amber-200 bg-white p-8">
+          <div className="mb-6 flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-amber-600" />
+            <h2 className="text-lg font-bold text-gray-900">프리미엄 소개 정보</h2>
           </div>
 
           <div className="space-y-6">
-            {/* Edition Numbering Format */}
-            <div className="bg-amber-50 rounded-lg p-6 border border-amber-300">
-              <div className="flex items-center gap-2 mb-4">
-                <Award className="w-5 h-5 text-amber-600" />
-                <h3 className="font-bold text-gray-900">에디션 넘버링 형식</h3>
-              </div>
-
-              <select
-                name="edition_format"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              >
-                <option value="standard">표준 형식 (001/{totalEditions.toString().padStart(3, '0')})</option>
-                <option value="simple">간단 형식 (1/{totalEditions})</option>
-                <option value="roman">로마자 형식 (I/C)</option>
-              </select>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">소재/제작 방식</label>
+              <input
+                type="text"
+                name="material"
+                value={form.material}
+                onChange={handleChange}
+                placeholder="예: 이탈리아산 울 100%, 국내 수작업 봉제"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+              />
             </div>
 
-            {/* Designer Signature */}
-            <div className="bg-amber-50 rounded-lg p-6 border border-amber-300">
-              <div className="flex items-center gap-2 mb-4">
-                <Edit3 className="w-5 h-5 text-amber-600" />
-                <h3 className="font-bold text-gray-900">디자이너 친필 서명</h3>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    서명 이미지 업로드 <span className="text-red-500">*</span>
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-amber-400 transition-colors cursor-pointer">
-                    <Edit3 className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600 mb-1">투명 배경의 서명 이미지를 업로드하세요</p>
-                    <p className="text-xs text-gray-500">PNG 형식 권장, 최대 2MB</p>
-                    <input type="file" name="signature_image" accept="image/png,image/jpeg" className="hidden" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    서명 위치
-                  </label>
-                  <select
-                    name="signature_position"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  >
-                    <option value="tag">제품 태그</option>
-                    <option value="inside">제품 내부</option>
-                    <option value="certificate">인증서</option>
-                    <option value="package">패키지</option>
-                  </select>
-                </div>
-              </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">컬렉션 스토리</label>
+              <textarea
+                name="editionStory"
+                rows={4}
+                value={form.editionStory}
+                onChange={handleChange}
+                placeholder="왜 한정판으로 출시하는지, 어떤 컬렉션인지 작성해주세요."
+                className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+              />
             </div>
 
-            {/* Special Packaging */}
-            <div className="bg-amber-50 rounded-lg p-6 border border-amber-300">
-              <div className="flex items-center gap-2 mb-4">
-                <Package className="w-5 h-5 text-amber-600" />
-                <h3 className="font-bold text-gray-900">프리미엄 패키징</h3>
-              </div>
-
-              <div className="space-y-4">
-                <label className="flex items-start gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-amber-400 transition-colors">
-                  <input
-                    type="checkbox"
-                    name="premium_package"
-                    className="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-2 focus:ring-amber-500 mt-0.5"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-900 block">한정판 전용 패키지 사용</span>
-                    <p className="text-xs text-gray-600 mt-1">
-                      특별 제작된 프리미엄 박스, 인증서, 보호 포장재가 포함됩니다
-                    </p>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-amber-400 transition-colors">
-                  <input
-                    type="checkbox"
-                    name="include_certificate"
-                    className="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-2 focus:ring-amber-500 mt-0.5"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-900 block">진품 인증서 포함</span>
-                    <p className="text-xs text-gray-600 mt-1">
-                      에디션 넘버와 디자이너 서명이 기재된 공식 인증서 제공
-                    </p>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-amber-400 transition-colors">
-                  <input
-                    type="checkbox"
-                    name="include_photocard"
-                    className="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-2 focus:ring-amber-500 mt-0.5"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-900 block">디자이너 포토카드 포함</span>
-                    <p className="text-xs text-gray-600 mt-1">
-                      컬렉션 제작 과정이나 디자이너 메시지가 담긴 포토카드
-                    </p>
-                  </div>
-                </label>
-              </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">디자이너 코멘트</label>
+              <textarea
+                name="designerNote"
+                rows={3}
+                value={form.designerNote}
+                onChange={handleChange}
+                placeholder="소비자에게 전달하고 싶은 디자이너 메시지를 작성해주세요."
+                className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-500"
+              />
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-4 pt-4">
+        <div className="flex items-center gap-4 pt-2">
           <button
             type="submit"
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
+            disabled={submitting}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-lg font-bold text-white shadow-lg transition-all hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Save className="w-6 h-6" />
-            한정판 등록하기
-            <span className="ml-2 px-3 py-1 bg-white/20 rounded-full text-sm">
-              등록 가능 {availableRegistrations}회
-            </span>
+            <Save className="h-6 w-6" />
+            {submitting ? "등록 중..." : "디자이너 한정판 등록"}
           </button>
-          <a
-            href="/seller/limited-editions"
-            className="px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+          <button
+            type="button"
+            onClick={() => navigate("/seller/limited-editions")}
+            className="rounded-xl border-2 border-gray-300 px-6 py-4 font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             취소
-          </a>
-        </div>
-
-        {/* Registration Limit Info */}
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-          <p className="text-sm text-blue-900">
-            <strong>ℹ️ 등록 제한 안내:</strong> 디자이너 한정판 등록은 매출 실적과 브랜드 인지도에 따라 제한됩니다. 
-            현재 {availableRegistrations}회의 등록 기회가 남아있습니다. 
-            추가 등록이 필요하신 경우 고객센터로 문의해주세요.
-          </p>
+          </button>
         </div>
       </form>
     </div>

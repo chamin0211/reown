@@ -5,5 +5,15 @@ spring:
   profiles:
     active: local
 
+  servlet:
+    multipart:
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:5MB}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:10MB}
+
 server:
   port: 8080
+
+reown:
+  upload:
+    root-dir: ${REOWN_UPLOAD_ROOT_DIR:./reown-uploads}
+    image-dir-name: images

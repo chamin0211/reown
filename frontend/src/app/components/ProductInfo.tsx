@@ -9,7 +9,7 @@ import { Heart, Share2, ShoppingCart } from 'lucide-react';
 import { addCartItem } from '../api/cartApi';
 import { getLoginUser } from '../auth/session';
 
-type SaleType = 'FUNDING' | 'REGULAR' | 'RESELL';
+type SaleType = 'FUNDING' | 'REGULAR' | 'RESELL' | 'DESIGNER_LIMITED';
 
 function normalizeOptionName(value: string): string {
   return value.trim().toLowerCase();
@@ -184,6 +184,8 @@ export function ProductInfo({
         });
   };
 
+  const isRegularLike = saleType === 'REGULAR' || saleType === 'DESIGNER_LIMITED';
+
   return (
     <div className="space-y-6">
       {/* 상단 정보 */}
@@ -354,7 +356,7 @@ export function ProductInfo({
           </button>
         )}
 
-        {saleType === 'REGULAR' && (
+        {isRegularLike && (
           <div className="space-y-2">
             <button
               onClick={() => navigate('/checkout')}

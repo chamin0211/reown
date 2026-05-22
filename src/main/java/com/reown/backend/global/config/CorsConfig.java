@@ -20,6 +20,14 @@ public class CorsConfig {
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                         .allowedHeaders("*");
+
+                registry.addMapping("/uploads/**")
+                        .allowedOrigins(
+                                "http://localhost:3000",
+                                "http://localhost:5173"
+                        )
+                        .allowedMethods("GET", "OPTIONS")
+                        .allowedHeaders("*");
             }
         };
     }

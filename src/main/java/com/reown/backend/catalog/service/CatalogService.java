@@ -1,5 +1,7 @@
 package com.reown.backend.catalog.service;
 
+import com.reown.backend.auth.entity.UserRole;
+import com.reown.backend.auth.repository.UserRepository;
 import com.reown.backend.brand.entity.Brand;
 import com.reown.backend.brand.repository.BrandRepository;
 import com.reown.backend.catalog.dto.CategoryResponse;
@@ -29,11 +31,13 @@ public class CatalogService {
     private static final String STATUS_ON_SALE = "ON_SALE";
     private static final String STATUS_DELETED = "DELETED";
     private static final String DEFAULT_SALE_TYPE = "NORMAL";
+    private static final String SALE_TYPE_DESIGNER_LIMITED = "DESIGNER_LIMITED";
 
     private final ProductRepository productRepository;
     private final ProductOptionRepository productOptionRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
+    private final UserRepository userRepository;
 
     public List<CategoryResponse> getCategories() {
         return categoryRepository.findAll()
@@ -109,6 +113,11 @@ public class CatalogService {
     @Transactional
     public ProductDetailResponse createSellerProduct(ProductCreateRequest request) {
         assertBrandExists(request.brandId());
+
+        if (SALE_TYPE_DESIGNER_LIMITED.equalsIgnoreCase(request.saleType())) {
+            assertBrandOwnerIsDesigner(request.brandId());
+        }
+
         // 셀러가 등록한 상품은 프론트에서 어떤 status를 보내더라도 반드시 승인 대기 상태로 저장합니다.
         Product savedProduct = saveProduct(request, STATUS_WAITING);
         saveOptions(savedProduct.getProductId(), request.options());
@@ -286,9 +295,17 @@ public class CatalogService {
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + productId));
     }
 
-    private void assertBrandExists(Long brandId) {
-        brandRepository.findById(brandId)
+    private Brand assertBrandExists(Long brandId) {
+        return brandRepository.findById(brandId)
                 .orElseThrow(() -> new IllegalArgumentException("브랜드를 찾을 수 없습니다. brandId=" + brandId));
+    }
+
+    private void assertBrandOwnerIsDesigner(Long brandId) {
+        Brand brand = assertBrandExists(brandId);
+
+        userRepository.findById(brand.getOwnerUserId())
+                .filter(user -> user.getRole() == UserRole.DESIGNER)
+                .orElseThrow(() -> new IllegalArgumentException("디자이너로 승인된 셀러만 디자이너 한정판을 등록할 수 있습니다."));
     }
 
     private void assertProductBelongsToBrand(Product product, Long brandId) {

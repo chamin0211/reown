@@ -1,8 +1,9 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronLeft, Calendar, ImageIcon, Save, Target, DollarSign, TrendingUp } from 'lucide-react';
+import { ChevronLeft, Save, Target, DollarSign, TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createSellerFundingProduct } from '../../api/fundingApi';
+import { ImageUploadField } from '../../components/ImageUploadField';
 
 const categories = ['아우터', '상의', '하의', '원피스', '가방', '신발', '악세서리'];
 
@@ -44,11 +45,6 @@ export function FundingProjectForm() {
     colorHex: '',
     maxPurchasePerUser: '5',
   });
-
-  const previewUrl = useMemo(() => {
-    const value = form.thumbnailUrl.trim();
-    return value.startsWith('http') ? value : '';
-  }, [form.thumbnailUrl]);
 
   const updateField = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -214,26 +210,14 @@ export function FundingProjectForm() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">프로젝트 이미지 URL</label>
-              <input
-                type="url"
-                value={form.thumbnailUrl}
-                onChange={(event) => updateField('thumbnailUrl', event.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <div className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
-                {previewUrl ? (
-                  <img src={previewUrl} alt="펀딩 이미지 미리보기" className="mx-auto h-52 rounded-lg object-cover" />
-                ) : (
-                  <div className="py-10 text-gray-500">
-                    <ImageIcon className="w-10 h-10 mx-auto mb-2 text-gray-400" />
-                    이미지 URL을 입력하면 미리보기가 표시됩니다.
-                  </div>
-                )}
-              </div>
-            </div>
+            <ImageUploadField
+              label="프로젝트 대표 이미지"
+              value={form.thumbnailUrl}
+              onChange={(url) => updateField('thumbnailUrl', url)}
+              helperText="업로드한 이미지 주소가 펀딩 상품 thumbnailUrl로 저장됩니다. 승인 후 펀딩 목록과 상세 화면에 표시됩니다."
+              placeholder="https://images.unsplash.com/..."
+              previewClassName="h-56"
+            />
           </div>
         </div>
 

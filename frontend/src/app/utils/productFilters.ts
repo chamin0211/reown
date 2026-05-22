@@ -2,6 +2,10 @@ import type { Product } from '../data/products';
 
 export type StoreFilters = Record<string, string[]>;
 
+type ProductLike = Product & {
+  price?: number | string | null;
+};
+
 function normalizeText(value?: string | null) {
   return (value ?? '').toLowerCase().replace(/\s+/g, '');
 }
@@ -40,11 +44,56 @@ export function normalizeColor(value?: string | null) {
   return normalized || '기본';
 }
 
+export function parseProductPrice(value: number | string | null | undefined) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const numericText = value.replace(/[^0-9.-]/g, '');
+    const numericValue = Number(numericText);
+    return Number.isFinite(numericValue) ? numericValue : 0;
+  }
+
+  return 0;
+}
+
 export function parsePriceRange(range: string) {
-  const [minText, maxText] = range.split('-');
-  const min = minText ? Number(minText) : 0;
-  const max = maxText ? Number(maxText) : Number.POSITIVE_INFINITY;
+  const normalized = range.trim().toLowerCase();
+
+  if (!normalized) {
+    return { min: 0, max: Number.POSITIVE_INFINITY };
+  }
+
+  // 혹시 이전 코드나 URL 파라미터에서 다른 형식으로 넘어와도 동작하도록 같이 지원합니다.
+  if (normalized.startsWith('under-')) {
+    return { min: 0, max: parseProductPrice(normalized.replace('under-', '')) };
+  }
+
+  if (normalized.startsWith('over-')) {
+    return { min: parseProductPrice(normalized.replace('over-', '')), max: Number.POSITIVE_INFINITY };
+  }
+
+  const [minText, maxText] = normalized.split('-');
+  const min = minText ? parseProductPrice(minText) : 0;
+  const max = maxText ? parseProductPrice(maxText) : Number.POSITIVE_INFINITY;
+
   return { min, max };
+}
+
+function matchesPriceRange(productPrice: number, range: string) {
+  const { min, max } = parsePriceRange(range);
+
+  if (!Number.isFinite(max)) {
+    return productPrice >= min;
+  }
+
+  if (min === 0) {
+    return productPrice >= min && productPrice <= max;
+  }
+
+  // 5만원~10만원처럼 경계값이 겹치는 구간은 하한 포함, 상한 포함으로 처리합니다.
+  return productPrice >= min && productPrice <= max;
 }
 
 export function applyProductFilters(products: Product[], filters: StoreFilters) {
@@ -68,10 +117,8 @@ export function applyProductFilters(products: Product[], filters: StoreFilters) 
 
     const selectedPrices = filters.price ?? [];
     if (selectedPrices.length > 0) {
-      const matchedPrice = selectedPrices.some((range) => {
-        const { min, max } = parsePriceRange(range);
-        return product.price >= min && product.price <= max;
-      });
+      const productPrice = parseProductPrice((product as ProductLike).price);
+      const matchedPrice = selectedPrices.some((range) => matchesPriceRange(productPrice, range));
       if (!matchedPrice) return false;
     }
 

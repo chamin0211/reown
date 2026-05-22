@@ -10,15 +10,13 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
 
   const [formData, setFormData] = useState({
-    email: '',
+    loginId: '',
     password: '',
   });
 
   useEffect(() => {
     const loginUser = getLoginUser();
     if (loginUser) {
-      // 이미 로그인되어 있으면 뒤로가기로 로그인 화면에 돌아와도
-      // 다른 계정으로 다시 로그인하지 못하게 역할별 기본 화면으로 돌려보냅니다.
       navigate(getDefaultPathByRole(loginUser.role), { replace: true });
     }
   }, [navigate]);
@@ -41,19 +39,16 @@ export function LoginPage() {
     }
 
     try {
-      const user = await login(formData.email, formData.password);
+      const user = await login(formData.loginId, formData.password);
 
       saveLoginUser(user);
 
       alert(`${user.nickname}님 로그인 성공`);
       const redirectPath = searchParams.get('redirect');
-      // replace를 쓰지 않으면 뒤로가기를 눌렀을 때 /login으로 돌아가고,
-      // LoginPage의 기존 로그인 감지 로직이 다시 역할별 기본 화면으로 돌려보냅니다.
-      // 그래서 셀러/관리자가 뒤로가기로 사용자 메인에 섞여 들어가는 문제를 막을 수 있습니다.
       navigate(redirectPath || getDefaultPathByRole(user.role));
     } catch (error) {
       console.error('로그인 실패:', error);
-      alert('로그인 실패. 이메일 또는 비밀번호를 확인해주세요.');
+      alert(error instanceof Error ? error.message : '로그인 실패. 아이디 또는 비밀번호를 확인해주세요.');
     }
   };
 
@@ -72,9 +67,7 @@ export function LoginPage() {
 
       <div className="pt-32 pb-20">
         <div className="max-w-md mx-auto px-8">
-          {/* Login Form */}
           <div>
-            {/* Title */}
             <h1
               className="text-4xl font-light tracking-wide mb-12 text-center"
               style={{ color: '#101828' }}
@@ -83,29 +76,28 @@ export function LoginPage() {
             </h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Email Input */}
               <div>
                 <label
-                  htmlFor="email"
+                  htmlFor="loginId"
                   className="block text-sm font-light mb-2"
                   style={{ color: '#101828' }}
                 >
-                  Email
+                  아이디
                 </label>
                 <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
+                  type="text"
+                  id="loginId"
+                  name="loginId"
+                  value={formData.loginId}
                   onChange={handleInputChange}
                   className="w-full px-4 text-base text-gray-900 font-light outline-none transition-all focus:border-gray-400"
                   style={{ border: '0.5px solid #d1d5db', height: '52px' }}
-                  placeholder="Enter your email"
+                  placeholder="아이디를 입력하세요"
+                  autoComplete="username"
                   required
                 />
               </div>
 
-              {/* Password Input */}
               <div>
                 <label
                   htmlFor="password"
@@ -122,12 +114,12 @@ export function LoginPage() {
                   onChange={handleInputChange}
                   className="w-full px-4 text-base text-gray-900 font-light outline-none transition-all focus:border-gray-400"
                   style={{ border: '0.5px solid #d1d5db', height: '52px' }}
-                  placeholder="Enter your password"
+                  placeholder="비밀번호를 입력하세요"
+                  autoComplete="current-password"
                   required
                 />
               </div>
 
-              {/* Login Button */}
               <button
                 type="submit"
                 className="w-full text-sm text-white font-light tracking-widest transition-opacity hover:opacity-90"
@@ -135,7 +127,6 @@ export function LoginPage() {
               >
                 LOGIN
               </button>
-
 
               <button
                 type="button"
@@ -146,7 +137,6 @@ export function LoginPage() {
                 카카오로 로그인
               </button>
 
-              {/* Sign Up Button */}
               <button
                 type="button"
                 onClick={() => navigate('/signup')}
@@ -158,10 +148,37 @@ export function LoginPage() {
                   height: '52px',
                 }}
               >
-                회원가입
+                사용자 회원가입
               </button>
 
-              {/* Find ID / Password Links */}
+              <button
+                type="button"
+                onClick={() => navigate('/seller/signup')}
+                className="w-full text-sm font-light tracking-widest transition-colors hover:bg-gray-50"
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#101828',
+                  border: '0.5px solid #d1d5db',
+                  height: '52px',
+                }}
+              >
+                셀러 전용 회원가입
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/admin/signup')}
+                className="w-full text-sm font-light tracking-widest transition-colors hover:bg-gray-50"
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#101828',
+                  border: '0.5px solid #d1d5db',
+                  height: '52px',
+                }}
+              >
+                관리자 전용 신청
+              </button>
+
               <div className="flex items-center justify-center gap-4 text-sm font-light">
                 <Link
                   to="/find-account"
@@ -179,18 +196,23 @@ export function LoginPage() {
               </div>
             </form>
 
-            {/* Sign-up Link */}
             <div className="mt-12 pt-8" style={{ borderTop: '0.5px solid #e5e7eb' }}>
-              <p className="text-center text-sm font-light text-gray-600">
-                Don't have an account?{' '}
-                <Link
-                  to="/signup"
-                  className="font-light transition-colors"
-                  style={{ color: '#101828' }}
-                >
-                  Join re:own
-                </Link>
-              </p>
+              <div className="text-center text-sm font-light text-gray-600 space-y-2">
+                <p>
+                  일반 사용자는{' '}
+                  <Link
+                    to="/signup"
+                    className="font-light transition-colors"
+                    style={{ color: '#101828' }}
+                  >
+                    사용자 회원가입
+                  </Link>
+                  을 이용해주세요.
+                </p>
+                <p>
+                  셀러와 관리자는 각각 전용 회원가입 경로에서 신청 후 승인 절차를 거칩니다.
+                </p>
+              </div>
             </div>
           </div>
         </div>

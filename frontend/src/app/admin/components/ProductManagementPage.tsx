@@ -31,6 +31,7 @@ function getSaleTypeText(saleType: string) {
     NORMAL: '일반',
     FUNDING: '펀딩',
     RESELL: '리셀',
+    DESIGNER_LIMITED: '디자이너 한정판',
   };
   return map[saleType] ?? saleType;
 }

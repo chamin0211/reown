@@ -49,3 +49,7 @@ frontend/.env.*.local
 
 # OS
 .DS_Store
+
+# Uploaded files for local development
+reown-uploads/
+uploads/

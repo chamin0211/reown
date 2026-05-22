@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronLeft, Package, ImageIcon, Save } from "lucide-react";
+import { ChevronLeft, Package, Save } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { createSellerProduct } from "../../api/sellerProductApi";
 import type { ProductOptionCreateRequest } from "../../api/adminProductApi";
+import { ImageUploadField } from "../../components/ImageUploadField";
 
 interface ProductFormState {
   name: string;
@@ -115,11 +116,6 @@ export function RegularProductForm() {
   const { brandId } = useAuth();
   const [form, setForm] = useState<ProductFormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
-
-  const previewImage = useMemo(() => {
-    if (form.thumbnailUrl.startsWith("http")) return form.thumbnailUrl;
-    return "https://picsum.photos/seed/reown-new-product/600/800";
-  }, [form.thumbnailUrl]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -271,30 +267,14 @@ export function RegularProductForm() {
               />
             </div>
 
-            <div className="grid grid-cols-[1fr_160px] gap-6 items-end">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  상품 이미지 URL
-                </label>
-                <input
-                  type="url"
-                  name="thumbnailUrl"
-                  value={form.thumbnailUrl}
-                  onChange={handleChange}
-                  placeholder="https://example.com/product.jpg"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1.5">현재 MVP에서는 파일 업로드 대신 이미지 URL을 MySQL에 저장합니다.</p>
-              </div>
-              <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                <img src={previewImage} alt="상품 이미지 미리보기" className="w-full h-40 object-cover" />
-              </div>
-            </div>
-
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
-              <ImageIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">실제 파일 업로드는 추후 S3/서버 저장소 연결 시 활성화하면 됩니다.</p>
-            </div>
+            <ImageUploadField
+              label="상품 대표 이미지"
+              value={form.thumbnailUrl}
+              onChange={(url) => setForm((prev) => ({ ...prev, thumbnailUrl: url }))}
+              helperText="업로드한 이미지 주소가 thumbnailUrl로 저장됩니다. 관리자 승인 후 상품 카드와 상세 페이지에 표시됩니다."
+              placeholder="https://example.com/product.jpg"
+              previewClassName="h-44"
+            />
           </div>
         </div>
 

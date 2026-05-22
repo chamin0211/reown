@@ -79,6 +79,7 @@ const COLOR_HEX_BY_NAME: Record<string, string> = {
 function mapSaleType(saleType: string): SaleType {
     if (saleType === "FUNDING") return "FUNDING";
     if (saleType === "RESELL") return "RESELL";
+    if (saleType === "DESIGNER_LIMITED") return "DESIGNER_LIMITED";
 
     // 백엔드는 NORMAL, 프론트는 REGULAR를 사용하므로 변환
     return "REGULAR";

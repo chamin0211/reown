@@ -100,7 +100,7 @@ export function ProductDetailPage() {
           )}
 
           {/* REGULAR 타입일 때만 재고 정보 표시 */}
-          {product.saleType === 'REGULAR' && (
+          {(product.saleType === 'REGULAR' || product.saleType === 'DESIGNER_LIMITED') && (
             <RegularStockInfo stockStatus="in_stock" stockCount={28} />
           )}
 

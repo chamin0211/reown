@@ -1,5 +1,5 @@
 // 중앙 집중식 상품 데이터 관리
-export type SaleType = 'FUNDING' | 'REGULAR' | 'RESELL';
+export type SaleType = 'FUNDING' | 'REGULAR' | 'RESELL' | 'DESIGNER_LIMITED';
 
 export interface TimelineStage {
   stage: string;

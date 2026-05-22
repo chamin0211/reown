@@ -115,6 +115,9 @@ export function SuperAdminSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const loginUser = getLoginUser();
+  const isMaster = loginUser?.role?.toUpperCase() === 'MASTER';
+  const roleTitle = isMaster ? 'Super Admin' : 'Admin';
+  const roleBadge = isMaster ? 'MASTER' : 'ADMIN';
   
   // Ref to track sidebar scroll position
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -250,9 +253,9 @@ export function SuperAdminSidebar() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">re:own</h1>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-semibold text-gray-500">Super Admin</span>
+              <span className="text-xs font-semibold text-gray-500">{roleTitle}</span>
               <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded">
-                MASTER
+                {roleBadge}
               </span>
             </div>
           </div>

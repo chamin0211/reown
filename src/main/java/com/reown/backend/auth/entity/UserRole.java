@@ -2,6 +2,10 @@ package com.reown.backend.auth.entity;
 
 public enum UserRole {
     USER,
+    SELLER_PENDING,
     SELLER,
-    ADMIN
+    DESIGNER,
+    ADMIN_PENDING,
+    ADMIN,
+    MASTER
 }

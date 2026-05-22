@@ -4,6 +4,7 @@ import { Plus, RefreshCw, ShieldCheck, Trash2, Truck } from 'lucide-react';
 import { cancelResell, createPremiumResell, getSellerResells } from '../../api/resellApi';
 import type { CreatePremiumResellRequest, ResellResponse } from '../../api/resellApi';
 import { getLoginUser } from '../../auth/session';
+import { ImageUploadField } from '../../components/ImageUploadField';
 
 function formatPrice(value?: number | null) {
   return `₩${Number(value ?? 0).toLocaleString()}`;
@@ -118,7 +119,7 @@ export function ResellManagement() {
       return;
     }
     if (!form.thumbnailUrl.trim()) {
-      alert('상품 이미지 URL을 입력해주세요.');
+      alert('상품 이미지를 업로드하거나 이미지 URL을 입력해주세요.');
       return;
     }
     if (!form.categoryName.trim()) {
@@ -221,7 +222,16 @@ export function ResellManagement() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="상품명" value={form.productName} onChange={(v) => handleChange('productName', v)} placeholder="예: RE:OWN 아카이브 한정 데님 자켓" />
-            <Input label="상품 이미지 URL" value={form.thumbnailUrl} onChange={(v) => handleChange('thumbnailUrl', v)} placeholder="https://images.unsplash.com/..." />
+            <div className="md:col-span-2">
+              <ImageUploadField
+                label="상품 대표 이미지"
+                value={form.thumbnailUrl}
+                onChange={(url) => handleChange('thumbnailUrl', url)}
+                helperText="업로드한 이미지 주소가 리셀 상품 thumbnailUrl로 저장됩니다. 관리자 검수 승인 후 리셀 마켓에 표시됩니다."
+                placeholder="https://images.unsplash.com/..."
+                previewClassName="h-48"
+              />
+            </div>
             <Input label="카테고리" value={form.categoryName} onChange={(v) => handleChange('categoryName', v)} placeholder="예: 아우터" />
             <Input label="사이즈" value={form.size} onChange={(v) => handleChange('size', v)} placeholder="예: M" />
             <Input label="컬러" value={form.color} onChange={(v) => handleChange('color', v)} placeholder="예: 데님 블루" />

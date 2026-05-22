@@ -43,12 +43,14 @@ public class KakaoLoginService {
 
         User user = userRepository.findByEmail(kakaoUserInfo.email())
                 .orElseGet(() -> userRepository.save(new User(
+                        kakaoUserInfo.loginId(),
                         kakaoUserInfo.email(),
                         "KAKAO_LOGIN",
                         kakaoUserInfo.nickname(),
                         UserRole.USER
                 )));
 
+        user.markLoginSuccess();
         return AuthResponse.from(user);
     }
 
@@ -100,13 +102,13 @@ public class KakaoLoginService {
                 ? profile.get("nickname").toString()
                 : "카카오사용자" + kakaoId;
 
-        return new KakaoUserInfo(email, nickname);
+        return new KakaoUserInfo("kakao_" + kakaoId, email, nickname);
     }
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
 
-    private record KakaoUserInfo(String email, String nickname) {
+    private record KakaoUserInfo(String loginId, String email, String nickname) {
     }
 }

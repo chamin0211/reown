@@ -9,6 +9,8 @@ import { CartPage } from './pages/CartPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { SellerApplyPage } from './pages/SellerApplyPage';
+import { AdminSignupPage } from './pages/AdminSignupPage';
 import { FindAccountPage } from './pages/FindAccountPage';
 import { MyBuyingPage } from './pages/MyBuyingPage';
 import { MySellingPage } from './pages/MySellingPage';
@@ -28,6 +30,8 @@ import { ResellDetailPage } from './pages/ResellDetailPage';
 import { ResellRegisterPage } from './pages/ResellRegisterPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { KakaoCallbackPage } from './pages/KakaoCallbackPage';
+import { SellerPendingPage } from './pages/SellerPendingPage';
+import { AdminPendingPage } from './pages/AdminPendingPage';
 
 import { AuthProvider as SellerAuthProvider } from './seller/contexts/AuthContext';
 import { Layout as SellerLayout } from './seller/components/Layout';
@@ -52,6 +56,9 @@ import { SettlementPayoutPage as AdminSettlementPayoutPage } from './admin/compo
 import { RevenueAnalyticsPage as AdminRevenueAnalyticsPage } from './admin/components/RevenueAnalyticsPage';
 import { FundingManagementPage as AdminFundingManagementPage } from './admin/components/FundingManagementPage';
 import { ResellInspectionQueuePage as AdminResellInspectionQueuePage } from './admin/components/ResellInspectionQueuePage';
+import { SellerOnboardingPage as AdminSellerOnboardingPage } from './admin/components/SellerOnboardingPage';
+import { SellerListPage as AdminSellerListPage } from './admin/components/SellerListPage';
+import { AdminManagementPage as AdminAdminManagementPage } from './admin/components/AdminManagementPage';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 
 export const router = createBrowserRouter([
@@ -103,6 +110,21 @@ export const router = createBrowserRouter([
   {
     path: '/signup',
     Component: SignupPage,
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/seller/signup',
+    Component: SellerApplyPage,
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/seller/apply',
+    Component: SellerApplyPage,
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/admin/signup',
+    Component: AdminSignupPage,
     ErrorBoundary: ErrorPage,
   },
   {
@@ -198,6 +220,26 @@ export const router = createBrowserRouter([
   },
 
   {
+    path: '/seller/pending',
+    element: (
+      <RoleProtectedRoute allowedRoles={['SELLER_PENDING']}>
+        <SellerPendingPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
+    path: '/admin/pending',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN_PENDING']}>
+        <AdminPendingPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
     path: '/seller',
     element: (
       <RoleProtectedRoute allowedRoles={['SELLER']}>
@@ -239,16 +281,36 @@ export const router = createBrowserRouter([
   {
     path: '/admin',
     element: (
-      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminDashboard />
       </RoleProtectedRoute>
     ),
     ErrorBoundary: ErrorPage,
   },
   {
+    path: '/admin/seller/onboarding',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
+        <AdminSellerOnboardingPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
+    path: '/admin/seller/list',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
+        <AdminSellerListPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
     path: '/admin/products',
     element: (
-      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminProductManagementPage />
       </RoleProtectedRoute>
     ),
@@ -257,7 +319,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/funding',
     element: (
-      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminFundingManagementPage />
       </RoleProtectedRoute>
     ),
@@ -267,7 +329,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/resell',
     element: (
-      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminResellInspectionQueuePage />
       </RoleProtectedRoute>
     ),
@@ -277,7 +339,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/settlement',
     element: (
-      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminSettlementManagementPage />
       </RoleProtectedRoute>
     ),
@@ -286,7 +348,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/settlement/payout',
     element: (
-      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminSettlementPayoutPage />
       </RoleProtectedRoute>
     ),
@@ -295,8 +357,18 @@ export const router = createBrowserRouter([
   {
     path: '/admin/settlement/analytics',
     element: (
-      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminRevenueAnalyticsPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
+    path: '/admin/settings/admins',
+    element: (
+      <RoleProtectedRoute allowedRoles={['MASTER']}>
+        <AdminAdminManagementPage />
       </RoleProtectedRoute>
     ),
     ErrorBoundary: ErrorPage,
@@ -305,7 +377,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/product-review/:id',
     element: (
-      <RoleProtectedRoute allowedRoles={['ADMIN']}>
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminProductReviewDetailPage />
       </RoleProtectedRoute>
     ),

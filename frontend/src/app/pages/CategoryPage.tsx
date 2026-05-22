@@ -9,6 +9,7 @@ import { ChevronDown } from 'lucide-react';
 import { getProducts } from '../api/productApi';
 import { getFundingProducts } from '../api/fundingApi';
 import type { Product } from '../data/products';
+import { applyProductFilters, parseProductPrice, type StoreFilters } from '../utils/productFilters';
 
 const categoryInfo: Record<string, { title: string; description: string }> = {
   'designer-store': {
@@ -29,7 +30,6 @@ const categoryInfo: Record<string, { title: string; description: string }> = {
   },
 };
 
-type ProductFilters = Record<string, string[]>;
 
 function getProductNumber(productId: string) {
   const value = Number(productId);
@@ -45,98 +45,16 @@ function filterProductsByCategory(products: Product[], category: string) {
       return products.filter((product) => product.saleType === 'RESELL');
 
     case 'brand-store':
-      // MVP에서는 일반 상품을 브랜드 스토어에 노출합니다.
+      // 일반 브랜드 상품만 브랜드 스토어에 노출합니다.
       return products.filter((product) => product.saleType === 'REGULAR');
 
     case 'designer-store':
-      // 디자이너 전용 saleType이 생기기 전까지 일반 상품도 확인 가능하게 둡니다.
-      return products.filter((product) => product.saleType === 'REGULAR');
+      // 관리자에게 디자이너로 승인된 셀러가 등록한 한정판만 디자이너 스토어에 노출합니다.
+      return products.filter((product) => product.saleType === 'DESIGNER_LIMITED');
 
     default:
       return products;
   }
-}
-
-function normalizeText(value?: string | null) {
-  return (value ?? '').toLowerCase().replace(/\s+/g, '');
-}
-
-function inferCategory(product: Product) {
-  const categoryName = normalizeText(product.categoryName);
-  const name = normalizeText(product.name);
-  const combined = `${categoryName} ${name}`;
-
-  if (/아우터|outer|재킷|자켓|자캣|코트|점퍼|블루종|패딩/.test(combined)) return 'outer';
-  if (/상의|top|티셔츠|셔츠|후드|후드티|니트|베스트|맨투맨|스웨트/.test(combined)) return 'top';
-  if (/하의|bottom|팬츠|바지|슬랙스|데님|스커트|쇼츠/.test(combined)) return 'bottom';
-  if (/원피스|dress|드레스/.test(combined)) return 'dress';
-  if (/가방|bag|백|백팩|토트|숄더백/.test(combined)) return 'bag';
-  if (/신발|shoes|슈즈|스니커즈|부츠|로퍼/.test(combined)) return 'shoes';
-
-  return 'etc';
-}
-
-function normalizeSize(value?: string | null) {
-  const normalized = normalizeText(value);
-  if (!normalized) return 'free';
-  if (normalized === 'f' || normalized === 'free' || normalized === 'onesize' || normalized === 'one-size') return 'free';
-  return normalized;
-}
-
-function normalizeColor(value?: string | null) {
-  const normalized = normalizeText(value);
-  if (/black|블랙|검정|검은/.test(normalized)) return 'black';
-  if (/white|화이트|아이보리|ivory|흰|하양/.test(normalized)) return 'white';
-  if (/gray|grey|그레이|회색|차콜|charcoal/.test(normalized)) return 'gray';
-  if (/navy|네이비|남색/.test(normalized)) return 'navy';
-  if (/beige|베이지|아이보리|크림|cream/.test(normalized)) return 'beige';
-  if (/brown|브라운|갈색|카멜|camel/.test(normalized)) return 'brown';
-  if (/blue|블루|파랑|청/.test(normalized)) return 'navy';
-  return normalized || '기본';
-}
-
-function parsePriceRange(range: string) {
-  const [minText, maxText] = range.split('-');
-  const min = minText ? Number(minText) : 0;
-  const max = maxText ? Number(maxText) : Number.POSITIVE_INFINITY;
-  return { min, max };
-}
-
-function applyProductFilters(products: Product[], filters: ProductFilters) {
-  return products.filter((product) => {
-    const selectedCategories = filters.category ?? [];
-    if (selectedCategories.length > 0 && !selectedCategories.includes(inferCategory(product))) {
-      return false;
-    }
-
-    const selectedSizes = filters.size ?? [];
-    if (selectedSizes.length > 0) {
-      const productSizes = new Set(product.availableSizes.map(normalizeSize));
-      if (!selectedSizes.some((size) => productSizes.has(normalizeSize(size)))) {
-        return false;
-      }
-    }
-
-    const selectedColors = filters.color ?? [];
-    if (selectedColors.length > 0) {
-      const productColors = new Set(product.availableColors.map((color) => normalizeColor(color.name)));
-      if (!selectedColors.some((color) => productColors.has(normalizeColor(color)))) {
-        return false;
-      }
-    }
-
-    const selectedPrices = filters.price ?? [];
-    if (selectedPrices.length > 0) {
-      const matchesPrice = selectedPrices.some((range) => {
-        const { min, max } = parsePriceRange(range);
-        return product.price >= min && product.price <= max;
-      });
-
-      if (!matchesPrice) return false;
-    }
-
-    return true;
-  });
 }
 
 function sortProducts(products: Product[], sortBy: string) {
@@ -144,10 +62,10 @@ function sortProducts(products: Product[], sortBy: string) {
 
   switch (sortBy) {
     case 'price-asc':
-      return copiedProducts.sort((a, b) => a.price - b.price);
+      return copiedProducts.sort((a, b) => parseProductPrice(a.price) - parseProductPrice(b.price));
 
     case 'price-desc':
-      return copiedProducts.sort((a, b) => b.price - a.price);
+      return copiedProducts.sort((a, b) => parseProductPrice(b.price) - parseProductPrice(a.price));
 
     case 'funding':
       return copiedProducts.sort(
@@ -169,7 +87,7 @@ export function CategoryPage() {
   const [gridColumns, setGridColumns] = useState<3 | 4 | 6>(4);
   const [sortBy, setSortBy] = useState('latest');
   const [products, setProducts] = useState<Product[]>([]);
-  const [filters, setFilters] = useState<ProductFilters>({});
+  const [filters, setFilters] = useState<StoreFilters>({});
   const [loading, setLoading] = useState(true);
 
   const currentCategory = category || 'designer-store';

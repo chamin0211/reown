@@ -1,7 +1,7 @@
 import { api } from './client';
 
 export type ProductStatus = 'WAITING' | 'ON_SALE' | 'REJECTED' | 'DELETED';
-export type ProductSaleType = 'NORMAL' | 'FUNDING' | 'RESELL';
+export type ProductSaleType = 'NORMAL' | 'FUNDING' | 'RESELL' | 'DESIGNER_LIMITED';
 
 export interface ProductOptionResponse {
   optionId: number;
