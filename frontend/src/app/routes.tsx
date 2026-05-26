@@ -59,6 +59,11 @@ import { ResellInspectionQueuePage as AdminResellInspectionQueuePage } from './a
 import { SellerOnboardingPage as AdminSellerOnboardingPage } from './admin/components/SellerOnboardingPage';
 import { SellerListPage as AdminSellerListPage } from './admin/components/SellerListPage';
 import { AdminManagementPage as AdminAdminManagementPage } from './admin/components/AdminManagementPage';
+import { SellerContractSettingsPage as AdminSellerContractSettingsPage } from './admin/components/SellerContractSettingsPage';
+import { UserManagementPage as AdminUserManagementPage } from './admin/components/UserManagementPage';
+import { UserReportsPage as AdminUserReportsPage } from './admin/components/UserReportsPage';
+import { ProductApprovalQueuePage as AdminProductApprovalQueuePage } from './admin/components/ProductApprovalQueuePage';
+import { CategorySettingsPage as AdminCategorySettingsPage } from './admin/components/CategorySettingsPage';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 
 export const router = createBrowserRouter([
@@ -308,10 +313,59 @@ export const router = createBrowserRouter([
   },
 
   {
+    path: '/admin/seller/contract',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
+        <AdminSellerContractSettingsPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
+    path: '/admin/users/all',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
+        <AdminUserManagementPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
+    path: '/admin/users/reports',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
+        <AdminUserReportsPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
     path: '/admin/products',
     element: (
       <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
         <AdminProductManagementPage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+  {
+    path: '/admin/review-queue',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
+        <AdminProductApprovalQueuePage />
+      </RoleProtectedRoute>
+    ),
+    ErrorBoundary: ErrorPage,
+  },
+
+  {
+    path: '/admin/products/categories',
+    element: (
+      <RoleProtectedRoute allowedRoles={['ADMIN', 'MASTER']}>
+        <AdminCategorySettingsPage />
       </RoleProtectedRoute>
     ),
     ErrorBoundary: ErrorPage,

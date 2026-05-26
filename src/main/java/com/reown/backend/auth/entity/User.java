@@ -56,10 +56,6 @@ public class User {
         this.createdAt = LocalDateTime.now();
     }
 
-    /**
-     * 기존 코드와 카카오 로그인 코드 호환용 생성자입니다.
-     * 새 일반 회원가입은 loginId를 직접 받는 생성자를 사용합니다.
-     */
     public User(String email, String password, String nickname, UserRole role) {
         this(resolveLoginIdFromEmail(email), email, password, nickname, role);
     }
@@ -89,6 +85,17 @@ public class User {
 
     public boolean isLocked(LocalDateTime now) {
         return lockedUntil != null && lockedUntil.isAfter(now);
+    }
+
+    public void lockUntil(LocalDateTime lockedUntil) {
+        this.lockedUntil = lockedUntil;
+        if (this.failedLoginCount < 5) {
+            this.failedLoginCount = 5;
+        }
+    }
+
+    public void unlockAccount() {
+        resetLoginFailure();
     }
 
     private static String resolveLoginIdFromEmail(String email) {

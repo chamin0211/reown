@@ -8,6 +8,7 @@ import com.reown.backend.auth.entity.UserRole;
 import com.reown.backend.auth.repository.UserRepository;
 import com.reown.backend.brand.entity.Brand;
 import com.reown.backend.brand.repository.BrandRepository;
+import com.reown.backend.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,6 +34,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final BrandRepository brandRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationService notificationService;
 
     @Value("${reown.admin.invite-code:${REOWN_ADMIN_INVITE_CODE:REOWN_ADMIN_2026}}")
     private String adminInviteCode;
@@ -64,7 +66,22 @@ public class AuthService {
         if (signupRole == UserRole.SELLER_PENDING) {
             Brand brand = createPendingBrandApplication(user.getUserId(), request);
             brandRepository.save(brand);
+            notificationService.notifyAdmins(
+                    "새 셀러 입점 신청",
+                    brand.getBrandName() + " 브랜드의 셀러 입점 신청이 접수되었습니다.",
+                    "SELLER_APPLICATION",
+                    "/admin/seller/onboarding"
+            );
             return AuthResponse.from(user, brand.getBrandId(), brand.getBrandName());
+        }
+
+        if (signupRole == UserRole.ADMIN_PENDING) {
+            notificationService.notifyMasters(
+                    "새 관리자 승인 요청",
+                    user.getNickname() + "님의 관리자 신청이 접수되었습니다.",
+                    "ADMIN_APPLICATION",
+                    "/admin/settings/admins"
+            );
         }
 
         return toAuthResponse(user);

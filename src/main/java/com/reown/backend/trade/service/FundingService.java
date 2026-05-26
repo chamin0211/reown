@@ -25,6 +25,7 @@ import com.reown.backend.trade.dto.FundingParticipationResponse;
 import com.reown.backend.trade.dto.FundingProductCreateRequest;
 import com.reown.backend.trade.dto.FundingUpdateCreateRequest;
 import com.reown.backend.trade.dto.FundingUpdateResponse;
+import com.reown.backend.notification.service.NotificationService;
 import com.reown.backend.trade.entity.TradeFundingCampaign;
 import com.reown.backend.trade.entity.TradeFundingParticipation;
 import com.reown.backend.trade.entity.TradeFundingUpdate;
@@ -60,6 +61,7 @@ public class FundingService {
     private final ProductRepository productRepository;
     private final ProductOptionRepository productOptionRepository;
     private final BrandRepository brandRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public FundingCampaignResponse createSellerFundingProduct(FundingProductCreateRequest request) {
@@ -104,6 +106,12 @@ public class FundingService {
         );
 
         TradeFundingCampaign savedCampaign = fundingCampaignRepository.save(campaign);
+        notificationService.notifyAdmins(
+                "새 펀딩 승인 요청",
+                savedProduct.getName() + " 펀딩 프로젝트가 승인 대기열에 등록되었습니다.",
+                "FUNDING_REVIEW",
+                "/admin/funding"
+        );
 
         return FundingCampaignResponse.from(savedCampaign, savedProduct, brand.getBrandName(), 0L);
     }
@@ -188,6 +196,7 @@ public class FundingService {
 
         product.approve();
         campaign.approve(LocalDateTime.now());
+        notifyBrandOwner(product, "펀딩 승인 완료", product.getName() + " 펀딩이 승인되어 사용자 화면에 노출됩니다.", "FUNDING_APPROVED", "/seller/funding");
 
         return toResponse(campaign);
     }
@@ -200,6 +209,7 @@ public class FundingService {
 
         product.reject();
         campaign.reject();
+        notifyBrandOwner(product, "펀딩 반려", product.getName() + " 펀딩이 반려되었습니다. 내용을 수정해 다시 등록해주세요.", "FUNDING_REJECTED", "/seller/funding");
 
         return toResponse(campaign);
     }
@@ -310,6 +320,13 @@ public class FundingService {
 
         campaign.refreshLifecycleStatus(LocalDateTime.now());
         campaign.updateProductionStage(productionStage);
+        notifyFundingParticipants(
+                campaign.getCampaignId(),
+                "펀딩 제작 단계 변경",
+                product.getName() + " 펀딩의 제작 단계가 " + campaign.getProductionStageValue() + " 상태로 변경되었습니다.",
+                "FUNDING_STAGE_UPDATED",
+                "/funding/" + campaign.getCampaignId()
+        );
 
         return toResponse(campaign);
     }
@@ -322,6 +339,13 @@ public class FundingService {
         validateFundingProduct(product);
         campaign.refreshLifecycleStatus(LocalDateTime.now());
         campaign.updateProductionStage(productionStage);
+        notifyFundingParticipants(
+                campaign.getCampaignId(),
+                "펀딩 제작 단계 변경",
+                product.getName() + " 펀딩의 제작 단계가 " + campaign.getProductionStageValue() + " 상태로 변경되었습니다.",
+                "FUNDING_STAGE_UPDATED",
+                "/funding/" + campaign.getCampaignId()
+        );
 
         return toResponse(campaign);
     }
@@ -364,7 +388,15 @@ public class FundingService {
                 normalizeUpdateStage(request.productionStage(), campaign)
         );
 
-        return FundingUpdateResponse.from(fundingUpdateRepository.save(update));
+        FundingUpdateResponse response = FundingUpdateResponse.from(fundingUpdateRepository.save(update));
+        notifyFundingParticipants(
+                campaignId,
+                "펀딩 공지 업데이트",
+                product.getName() + " 펀딩에 새 공지가 등록되었습니다: " + request.title(),
+                "FUNDING_UPDATE",
+                "/funding/" + campaignId
+        );
+        return response;
     }
 
     @Transactional
@@ -424,6 +456,26 @@ public class FundingService {
         return productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + productId));
     }
+    private void notifyBrandOwner(Product product, String title, String message, String type, String linkUrl) {
+        brandRepository.findById(product.getBrandId())
+                .ifPresent(brand -> notificationService.notifyUser(
+                        brand.getOwnerUserId(),
+                        title,
+                        message,
+                        type,
+                        linkUrl
+                ));
+    }
+
+    private void notifyFundingParticipants(Long campaignId, String title, String message, String type, String linkUrl) {
+        participationRepository.findByCampaignIdOrderByCreatedAtDesc(campaignId)
+                .stream()
+                .filter(participation -> !"CANCELED".equals(participation.getStatus()))
+                .map(TradeFundingParticipation::getUserId)
+                .distinct()
+                .forEach(userId -> notificationService.notifyUser(userId, title, message, type, linkUrl));
+    }
+
 
     private String getBrandName(Long brandId) {
         return brandRepository.findById(brandId)

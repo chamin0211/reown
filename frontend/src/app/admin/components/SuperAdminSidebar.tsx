@@ -11,11 +11,11 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  Bell,
   LogOut
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { clearLoginUser, getLoginUser } from '../../auth/session';
+import { NotificationBell } from '../../components/NotificationBell';
 
 interface SubMenuItem {
   label: string;
@@ -146,8 +146,6 @@ export function SuperAdminSidebar() {
   };
   
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(getInitialExpandedMenus);
-  const [notificationCount] = useState(0);
-
   const handleLogout = () => {
     if (!confirm('로그아웃하시겠습니까?')) return;
 
@@ -249,23 +247,20 @@ export function SuperAdminSidebar() {
     >
       {/* Header - Sticky at top of sidebar */}
       <div className="p-6 border-b border-gray-100 bg-white sticky top-0 z-20 shadow-sm">
-        <Link to="/admin" className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">re:own</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-semibold text-gray-500">{roleTitle}</span>
-              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded">
-                {roleBadge}
-              </span>
+        <div className="flex items-center justify-between">
+          <Link to="/admin">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">re:own</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs font-semibold text-gray-500">{roleTitle}</span>
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded">
+                  {roleBadge}
+                </span>
+              </div>
             </div>
-          </div>
-          <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <Bell size={20} className="text-gray-600" />
-            {notificationCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            )}
-          </button>
-        </Link>
+          </Link>
+          <NotificationBell panelClassName="left-0 right-auto" />
+        </div>
       </div>
       
       {/* Navigation - Scrollable Content Area */}

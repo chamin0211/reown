@@ -20,4 +20,16 @@ public class Category {
 
     @Column(name = "name", nullable = false)
     private String name;
+
+    public Category(String name, Long parentId) {
+        this.name = name;
+        this.parentId = parentId;
+    }
+
+    public void update(String name, Long parentId) {
+        if (name != null && !name.isBlank()) {
+            this.name = name.trim();
+        }
+        this.parentId = parentId;
+    }
 }

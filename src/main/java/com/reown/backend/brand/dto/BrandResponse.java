@@ -2,6 +2,8 @@ package com.reown.backend.brand.dto;
 
 import com.reown.backend.brand.entity.Brand;
 
+import java.math.BigDecimal;
+
 public record BrandResponse(
         Long brandId,
         Long ownerUserId,
@@ -10,7 +12,8 @@ public record BrandResponse(
         String businessNumber,
         String salesStatus,
         String settlementCycle,
-        String status
+        String status,
+        BigDecimal commissionRate
 ) {
     public static BrandResponse from(Brand brand) {
         return new BrandResponse(
@@ -21,7 +24,8 @@ public record BrandResponse(
                 brand.getBusinessNumber(),
                 brand.getSalesStatus(),
                 brand.getSettlementCycle(),
-                brand.getStatus()
+                brand.getStatus(),
+                brand.getCommissionRate()
         );
     }
 }

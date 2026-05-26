@@ -1,6 +1,8 @@
 package com.reown.backend.auth.controller;
 
 import com.reown.backend.auth.dto.AdminUserResponse;
+import com.reown.backend.auth.dto.UserLockRequest;
+import com.reown.backend.auth.dto.UserRoleUpdateRequest;
 import com.reown.backend.auth.service.AdminUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -42,5 +44,20 @@ public class AdminUserController {
     @PatchMapping("/{userId}/revoke-master")
     public AdminUserResponse revokeMaster(@PathVariable Long userId) {
         return adminUserService.revokeMaster(userId);
+    }
+
+    @PatchMapping("/{userId}/role")
+    public AdminUserResponse changeRole(@PathVariable Long userId, @RequestBody UserRoleUpdateRequest request) {
+        return adminUserService.changeRole(userId, request.role());
+    }
+
+    @PatchMapping("/{userId}/lock")
+    public AdminUserResponse lockUser(@PathVariable Long userId, @RequestBody(required = false) UserLockRequest request) {
+        return adminUserService.lockUser(userId, request == null ? null : request.days());
+    }
+
+    @PatchMapping("/{userId}/unlock")
+    public AdminUserResponse unlockUser(@PathVariable Long userId) {
+        return adminUserService.unlockUser(userId);
     }
 }

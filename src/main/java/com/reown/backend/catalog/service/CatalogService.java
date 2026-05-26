@@ -16,6 +16,7 @@ import com.reown.backend.catalog.entity.ProductOption;
 import com.reown.backend.catalog.repository.CategoryRepository;
 import com.reown.backend.catalog.repository.ProductOptionRepository;
 import com.reown.backend.catalog.repository.ProductRepository;
+import com.reown.backend.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,7 @@ public class CatalogService {
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public List<CategoryResponse> getCategories() {
         return categoryRepository.findAll()
@@ -121,6 +123,12 @@ public class CatalogService {
         // 셀러가 등록한 상품은 프론트에서 어떤 status를 보내더라도 반드시 승인 대기 상태로 저장합니다.
         Product savedProduct = saveProduct(request, STATUS_WAITING);
         saveOptions(savedProduct.getProductId(), request.options());
+        notificationService.notifyAdmins(
+                "새 상품 승인 요청",
+                savedProduct.getName() + " 상품이 승인 대기열에 등록되었습니다.",
+                "PRODUCT_REVIEW",
+                "/admin/review-queue"
+        );
         return toProductDetailResponse(savedProduct);
     }
 
@@ -173,6 +181,7 @@ public class CatalogService {
     public ProductDetailResponse approveProduct(Long productId) {
         Product product = getProduct(productId);
         product.approve();
+        notifyBrandOwner(product, "상품 승인 완료", product.getName() + " 상품이 승인되어 스토어에 노출됩니다.", "PRODUCT_APPROVED", "/seller/products");
         return toProductDetailResponse(product);
     }
 
@@ -180,6 +189,7 @@ public class CatalogService {
     public ProductDetailResponse rejectProduct(Long productId) {
         Product product = getProduct(productId);
         product.reject();
+        notifyBrandOwner(product, "상품 반려", product.getName() + " 상품이 반려되었습니다. 내용을 수정해 다시 등록해주세요.", "PRODUCT_REJECTED", "/seller/products");
         return toProductDetailResponse(product);
     }
 
@@ -312,6 +322,17 @@ public class CatalogService {
         if (!product.getBrandId().equals(brandId)) {
             throw new IllegalArgumentException("해당 브랜드의 상품이 아닙니다.");
         }
+    }
+
+    private void notifyBrandOwner(Product product, String title, String message, String type, String linkUrl) {
+        brandRepository.findById(product.getBrandId())
+                .ifPresent(brand -> notificationService.notifyUser(
+                        brand.getOwnerUserId(),
+                        title,
+                        message,
+                        type,
+                        linkUrl
+                ));
     }
 
 

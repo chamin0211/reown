@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -35,6 +36,9 @@ public class Brand {
     @Column(name = "settlement_cycle")
     private String settlementCycle;
 
+    @Column(name = "commission_rate", nullable = false, precision = 5, scale = 2)
+    private BigDecimal commissionRate = BigDecimal.valueOf(10.00);
+
     @Column(name = "status", nullable = false)
     private String status;
 
@@ -47,6 +51,7 @@ public class Brand {
         this.brandLogoUrl = brandLogoUrl;
         this.businessNumber = businessNumber;
         this.settlementCycle = settlementCycle;
+        this.commissionRate = BigDecimal.valueOf(10.00);
         this.salesStatus = "INACTIVE";
         this.status = "PENDING";
         this.createdAt = LocalDateTime.now();
@@ -60,5 +65,17 @@ public class Brand {
     public void reject() {
         this.status = "REJECTED";
         this.salesStatus = "INACTIVE";
+    }
+
+    public void updateContract(String settlementCycle, BigDecimal commissionRate, String salesStatus) {
+        if (settlementCycle != null && !settlementCycle.isBlank()) {
+            this.settlementCycle = settlementCycle.trim().toUpperCase();
+        }
+        if (commissionRate != null) {
+            this.commissionRate = commissionRate;
+        }
+        if (salesStatus != null && !salesStatus.isBlank()) {
+            this.salesStatus = salesStatus.trim().toUpperCase();
+        }
     }
 }

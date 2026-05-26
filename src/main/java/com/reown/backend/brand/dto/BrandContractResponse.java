@@ -5,35 +5,31 @@ import com.reown.backend.brand.entity.Brand;
 
 import java.math.BigDecimal;
 
-public record AdminSellerResponse(
+public record BrandContractResponse(
         Long brandId,
+        String brandName,
         Long ownerUserId,
-        String ownerEmail,
         String ownerLoginId,
         String ownerNickname,
         String ownerRole,
-        String brandName,
-        String brandLogoUrl,
         String businessNumber,
+        String status,
         String salesStatus,
         String settlementCycle,
-        String status,
         BigDecimal commissionRate
 ) {
-    public static AdminSellerResponse from(Brand brand, User owner) {
-        return new AdminSellerResponse(
+    public static BrandContractResponse from(Brand brand, User owner) {
+        return new BrandContractResponse(
                 brand.getBrandId(),
+                brand.getBrandName(),
                 brand.getOwnerUserId(),
-                owner.getEmail(),
                 owner.getLoginId(),
                 owner.getNickname(),
                 owner.getRole().name(),
-                brand.getBrandName(),
-                brand.getBrandLogoUrl(),
                 brand.getBusinessNumber(),
+                brand.getStatus(),
                 brand.getSalesStatus(),
                 brand.getSettlementCycle(),
-                brand.getStatus(),
                 brand.getCommissionRate()
         );
     }

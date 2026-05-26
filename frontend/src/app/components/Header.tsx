@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { SearchDropdown } from './SearchDropdown';
 import { UserDropdown } from './UserDropdown';
+import { NotificationBell } from './NotificationBell';
 import { clearLoginUser, getLoginUser, LoginUser, SESSION_CHANGED_EVENT } from '../auth/session';
 
 export function Header() {
@@ -74,6 +75,7 @@ export function Header() {
               <Link to="/cart" className="p-2 text-gray-700 hover:text-gray-900 transition-colors">
                 <ShoppingCart className="w-5 h-5" />
               </Link>
+              <NotificationBell />
               <div className="relative">
                 <button
                   onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}

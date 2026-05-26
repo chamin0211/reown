@@ -8,6 +8,7 @@ import com.reown.backend.brand.dto.BrandApplyRequest;
 import com.reown.backend.brand.dto.BrandResponse;
 import com.reown.backend.brand.entity.Brand;
 import com.reown.backend.brand.repository.BrandRepository;
+import com.reown.backend.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class BrandService {
 
     private final BrandRepository brandRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public BrandResponse apply(BrandApplyRequest request) {
@@ -69,6 +71,14 @@ public class BrandService {
         brand.approve();
         owner.changeRole(role);
 
+        notificationService.notifyUser(
+                owner.getUserId(),
+                role == UserRole.DESIGNER ? "디자이너 셀러 승인 완료" : "셀러 입점 승인 완료",
+                brand.getBrandName() + " 브랜드 입점이 승인되었습니다. 이제 셀러센터를 이용할 수 있습니다.",
+                "SELLER_APPROVED",
+                "/seller"
+        );
+
         return BrandResponse.from(brand);
     }
 
@@ -84,6 +94,14 @@ public class BrandService {
         if (owner.getRole() == UserRole.SELLER_PENDING) {
             owner.changeRole(UserRole.USER);
         }
+
+        notificationService.notifyUser(
+                owner.getUserId(),
+                "셀러 입점 신청 반려",
+                brand.getBrandName() + " 브랜드 입점 신청이 반려되었습니다. 입력 정보를 확인한 뒤 다시 신청해주세요.",
+                "SELLER_REJECTED",
+                "/login"
+        );
 
         return BrandResponse.from(brand);
     }
@@ -107,6 +125,14 @@ public class BrandService {
         owner.changeRole(UserRole.DESIGNER);
         brand.approve();
 
+        notificationService.notifyUser(
+                owner.getUserId(),
+                "디자이너 권한 부여",
+                brand.getBrandName() + " 브랜드에 디자이너 한정판 등록 권한이 부여되었습니다.",
+                "DESIGNER_GRANTED",
+                "/seller/limited-editions"
+        );
+
         return AdminSellerResponse.from(brand, owner);
     }
 
@@ -120,6 +146,14 @@ public class BrandService {
         User owner = getOwner(brand);
         owner.changeRole(UserRole.SELLER);
         brand.approve();
+
+        notificationService.notifyUser(
+                owner.getUserId(),
+                "디자이너 권한 회수",
+                brand.getBrandName() + " 브랜드의 디자이너 권한이 일반 셀러 권한으로 변경되었습니다.",
+                "DESIGNER_REVOKED",
+                "/seller"
+        );
 
         return AdminSellerResponse.from(brand, owner);
     }

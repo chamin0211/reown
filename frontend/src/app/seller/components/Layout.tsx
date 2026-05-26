@@ -1,7 +1,8 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Home, Package, ShoppingBag, Sparkles, DollarSign, Store, Bell, User, LogOut, TrendingUp, Gavel, Truck } from "lucide-react";
+import { Home, Package, ShoppingBag, Sparkles, DollarSign, Store, User, LogOut, TrendingUp, Gavel, Truck } from "lucide-react";
 import { clearLoginUser } from "../../auth/session";
 import { useAuth } from "../contexts/AuthContext";
+import { NotificationBell } from "../../components/NotificationBell";
 
 const navItems = [
   { to: "/seller", label: "홈", icon: Home, end: true },
@@ -80,10 +81,7 @@ export function Layout() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-gray-100 rounded-lg relative">
-              <Bell className="w-5 h-5 text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2 p-2 rounded-lg">
               <User className="w-5 h-5 text-gray-600" />
               <div className="text-right leading-tight">
