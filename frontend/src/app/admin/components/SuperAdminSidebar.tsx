@@ -7,7 +7,6 @@ import {
   TrendingUp, 
   CheckSquare, 
   DollarSign, 
-  Flag,
   Settings,
   ChevronDown,
   ChevronRight,
@@ -91,21 +90,10 @@ const menuItems: MenuItem[] = [
     ]
   },
   { 
-    icon: <Flag size={20} />, 
-    label: '콘텐츠 모더레이션', 
-    path: '/admin/moderation',
-    submenus: [
-      { label: '부적절 리뷰/게시글', path: '/admin/moderation/content' },
-      { label: '가품 판정 리포트', path: '/admin/moderation/fake-reports' },
-    ]
-  },
-  { 
     icon: <Settings size={20} />, 
     label: '시스템 설정', 
     path: '/admin/settings',
     submenus: [
-      { label: '배너/팝업 관리', path: '/admin/settings/banners' },
-      { label: '공지사항', path: '/admin/settings/notices' },
       { label: '어드민 권한 관리', path: '/admin/settings/admins' },
     ]
   },

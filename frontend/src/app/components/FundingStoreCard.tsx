@@ -91,12 +91,6 @@ export function FundingStoreCard({
           </div>
         </div>
 
-        {/* 디지털 정품 보증서 */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-          <h4 className="text-sm font-semibold text-blue-900 mb-1">디지털 정품 보증서</h4>
-          <p className="text-xs text-blue-700">NFT 기반 블록체인 인증서 제공</p>
-        </div>
-
         {/* 펀딩 참여 버튼 */}
         <button className="w-full bg-blue-900 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 transition-colors">
           펀딩 참여하기

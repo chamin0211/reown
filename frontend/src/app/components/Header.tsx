@@ -1,4 +1,4 @@
-import { Search, Heart, ShoppingCart, User, Shield } from 'lucide-react';
+import { Search, Heart, ShoppingCart, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { SearchDropdown } from './SearchDropdown';
@@ -55,10 +55,6 @@ export function Header() {
               </Link>
               <Link to="/resell" className="text-gray-700 hover:text-gray-900 transition-colors">
                 리셀
-              </Link>
-              <Link to="/vault" className="flex items-center gap-1 text-blue-900 hover:text-blue-700 transition-colors font-medium">
-                <Shield className="w-4 h-4" />
-                The Vault
               </Link>
             </nav>
 

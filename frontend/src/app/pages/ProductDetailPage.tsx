@@ -4,7 +4,6 @@ import { Header } from '../components/Header';
 import { ProductImageGallery } from '../components/ProductImageGallery';
 import { ProductInfo } from '../components/ProductInfo';
 import { ProductionTimeline } from '../components/ProductionTimeline';
-import { DigitalCertificate } from '../components/DigitalCertificate';
 import { ProductTabs } from '../components/ProductTabs';
 import { ResellConditionInfo } from '../components/ResellConditionInfo';
 import { RegularStockInfo } from '../components/RegularStockInfo';
@@ -115,13 +114,6 @@ export function ProductDetailPage() {
                 currentPrice={product.price}
               />
             )}
-
-          {/* 디지털 보증서 - FUNDING 타입일 때만 표시 */}
-          {product.saleType === 'FUNDING' && (
-            <div className="mb-12">
-              <DigitalCertificate />
-            </div>
-          )}
 
           {/* 상세 정보 탭 */}
           <ProductTabs
